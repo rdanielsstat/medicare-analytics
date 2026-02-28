@@ -1,0 +1,129 @@
+services:
+  # -------------------------
+  # PostgreSQL
+  # -------------------------
+  postgres:
+    image: postgres:17
+    container_name: medicare_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - medicare_data:/var/lib/postgresql/data
+      - ./src/db/init:/docker-entrypoint-initdb.d # runs init scripts on first start
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - medicare-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # -------------------------
+  # PGAdmin (optional UI)
+  # -------------------------
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "8085:80"
+    networks:
+      - medicare-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # -------------------------
+  # Airflow — DB init (runs once and exits)
+  # -------------------------
+  airflow-init:
+    image: apache/airflow:2.7.2
+    container_name: airflow_init
+    environment:
+      _AIRFLOW_UID: ${AIRFLOW_UID}
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
+      - ./logs:/opt/airflow/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medicare-network
+    command: airflow db init
+
+  # -------------------------
+  # Airflow — Scheduler
+  # -------------------------
+  airflow-scheduler:
+    image: apache/airflow:2.7.2
+    container_name: airflow_scheduler
+    environment:
+      _AIRFLOW_UID: ${AIRFLOW_UID}
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
+      - ./logs:/opt/airflow/logs
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    networks:
+      - medicare-network
+    command: airflow scheduler
+    restart: unless-stopped
+
+  # -------------------------
+  # Airflow — Webserver
+  # -------------------------
+  airflow-webserver:
+    image: apache/airflow:2.7.2
+    container_name: airflow_webserver
+    environment:
+      _AIRFLOW_UID: ${AIRFLOW_UID}
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
+      - ./logs:/opt/airflow/logs
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    networks:
+      - medicare-network
+    command: airflow webserver
+    restart: unless-stopped
+
+volumes:
+  medicare_data:
+  pgadmin_data:
+
+networks:
+  medicare-network:
+    driver: bridge

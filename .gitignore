@@ -1,5 +1,18 @@
+# .gitignore
+
 .DS_Store
 
 data/
 
 .venv/
+
+.vscode/
+
+.env
+
+logs/
+
+commands
+
+__pycache__/
+*.pyc
