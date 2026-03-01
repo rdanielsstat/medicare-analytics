@@ -44,59 +44,59 @@ df = load_data()
 # Streamlit UI
 # -----------------------------
 # altair version (simpler but less hover formatting control)
-st.title("U.S. Medicare Enrollment")
-option = st.radio("View:", ('Cumulative Total', 'Monthly New Beneficiaries'))
-
-if option == 'Cumulative Total':
-    plot_df = df[['report_date', 'total_beneficiaries']].copy()
-    plot_df['y'] = (plot_df['total_beneficiaries'] / 1_000_000).round(1)
-    plot_df['label'] = plot_df['y'].astype(str) + 'M'
-
-    chart = alt.Chart(plot_df, title='Total Medicare Beneficiaries').mark_line().encode(
-        x=alt.X('report_date:T', title='Date', axis=alt.Axis(format='%b %Y', labelAngle=-45)),
-        y=alt.Y('y:Q', title='Beneficiaries (M)'),
-        tooltip=[
-            alt.Tooltip('report_date:T', title='Date', format='%b %Y'),
-            alt.Tooltip('label:N', title='Total Beneficiaries'),
-        ]
-    ).properties(width=800, height=400)
-
-else:
-    plot_df = df[['report_date', 'monthly_new_benes']].copy()
-    plot_df['y'] = (plot_df['monthly_new_benes'] / 1_000).round(1)
-    plot_df['label'] = plot_df['y'].astype(str) + 'K'
-
-    chart = alt.Chart(plot_df, title='New Medicare Beneficiaries — Monthly Change').mark_bar().encode(
-        x=alt.X('report_date:T', title='Date', axis=alt.Axis(format='%b %Y', labelAngle=-45)),
-        y=alt.Y('y:Q', title='New Beneficiaries (K)'),
-        tooltip=[
-            alt.Tooltip('report_date:T', title='Date', format='%b %Y'),
-            alt.Tooltip('label:N', title='New Beneficiaries'),
-        ]
-    ).properties(width=800, height=400)
-
-st.altair_chart(chart, width='stretch')
-
-## plotly version for better hover formatting
 # st.title("U.S. Medicare Enrollment")
-
 # option = st.radio("View:", ('Cumulative Total', 'Monthly New Beneficiaries'))
 
 # if option == 'Cumulative Total':
-#     fig = px.line(df, x='report_date', y=df['total_beneficiaries'] / 1_000_000,
-#                   labels={'report_date': 'Date', 'y': 'Beneficiaries'},
-#                   title='Total Medicare Beneficiaries')
-#     fig.update_traces(
-#         hovertemplate='Date: %{x|%b %Y}<br>Total Beneficiaries: %{y:.1f}M<extra></extra>'
-#     )
-#     fig.update_yaxes(ticksuffix='M')
-# else:
-#     fig = px.bar(df, x='report_date', y=df['monthly_new_benes'] / 1_000,
-#                  labels={'report_date': 'Date', 'y': 'New Beneficiaries'},
-#                  title='New Medicare Beneficiaries — Monthly Change')
-#     fig.update_traces(
-#         hovertemplate='Date: %{x|%b %Y}<br>New Beneficiaries: %{y:.1f}K<extra></extra>'
-#     )
-#     fig.update_yaxes(ticksuffix='K')
+#     plot_df = df[['report_date', 'total_beneficiaries']].copy()
+#     plot_df['y'] = (plot_df['total_beneficiaries'] / 1_000_000).round(1)
+#     plot_df['label'] = plot_df['y'].astype(str) + 'M'
 
-# st.plotly_chart(fig, width='stretch')
+#     chart = alt.Chart(plot_df, title='Total Medicare Beneficiaries').mark_line().encode(
+#         x=alt.X('report_date:T', title='Date', axis=alt.Axis(format='%b %Y', labelAngle=-45)),
+#         y=alt.Y('y:Q', title='Beneficiaries (M)'),
+#         tooltip=[
+#             alt.Tooltip('report_date:T', title='Date', format='%b %Y'),
+#             alt.Tooltip('label:N', title='Total Beneficiaries'),
+#         ]
+#     ).properties(width=800, height=400)
+
+# else:
+#     plot_df = df[['report_date', 'monthly_new_benes']].copy()
+#     plot_df['y'] = (plot_df['monthly_new_benes'] / 1_000).round(1)
+#     plot_df['label'] = plot_df['y'].astype(str) + 'K'
+
+#     chart = alt.Chart(plot_df, title='New Medicare Beneficiaries — Monthly Change').mark_bar(width=3).encode(
+#         x=alt.X('report_date:T', title='Date', axis=alt.Axis(format='%b %Y', labelAngle=-45)),
+#         y=alt.Y('y:Q', title='New Beneficiaries (K)'),
+#         tooltip=[
+#             alt.Tooltip('report_date:T', title='Date', format='%b %Y'),
+#             alt.Tooltip('label:N', title='New Beneficiaries'),
+#         ]
+#     ).properties(width=800, height=400)
+
+# st.altair_chart(chart, width='stretch')
+
+## plotly version for better hover formatting
+st.title("U.S. Medicare Enrollment")
+
+option = st.radio("View:", ('Cumulative Total', 'Monthly New Beneficiaries'))
+
+if option == 'Cumulative Total':
+    fig = px.line(df, x='report_date', y=df['total_beneficiaries'] / 1_000_000,
+                  labels={'report_date': 'Date', 'y': 'Beneficiaries'},
+                  title='Total Medicare Beneficiaries')
+    fig.update_traces(
+        hovertemplate='Date: %{x|%b %Y}<br>Total Beneficiaries: %{y:.1f}M<extra></extra>'
+    )
+    fig.update_yaxes(ticksuffix='M')
+else:
+    fig = px.bar(df, x='report_date', y=df['monthly_new_benes'] / 1_000,
+                 labels={'report_date': 'Date', 'y': 'New Beneficiaries'},
+                 title='New Medicare Beneficiaries — Monthly Change')
+    fig.update_traces(
+        hovertemplate='Date: %{x|%b %Y}<br>New Beneficiaries: %{y:.1f}K<extra></extra>'
+    )
+    fig.update_yaxes(ticksuffix='K')
+
+st.plotly_chart(fig, width='stretch')

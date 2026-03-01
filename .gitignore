@@ -1,18 +1,29 @@
 # .gitignore
 
+# Credentials & secrets
+.env
+dbt_profiles/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Airflow
+logs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
 .DS_Store
+
+# VS Code
+.vscode/
 
 data/
 
-.venv/
-
-.vscode/
-
-.env
-
-logs/
-
 commands
 
-__pycache__/
-*.pyc
+dags_archive/
