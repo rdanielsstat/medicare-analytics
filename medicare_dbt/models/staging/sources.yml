@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: medicare
+    database: medicare_db
+    schema: public
+    tables:
+      - name: medicare_monthly_enrollment

@@ -27,27 +27,18 @@ engine = create_engine(
 # -----------------------------
 # Query total enrollment
 # -----------------------------
-query = """
-SELECT year,
-       month,
-       tot_benes
-  FROM medicare_monthly_enrollment
- WHERE bene_geo_lvl = 'National'
-   AND month != 'Year'
-"""
+query = "SELECT * FROM dbt_medicare.mart_enrollment_national"
 
 @st.cache_data
 def load_data():
     df = pd.read_sql(query, engine)
-    df['report_date'] = pd.to_datetime(df['year'] + '-' + df['month'] + '-01', format='%Y-%B-%d')
     df = df.sort_values('report_date').reset_index(drop=True)
-    df['monthly_new_benes'] = df['tot_benes'].diff().fillna(0)
-    df = df[['report_date', 'tot_benes', 'monthly_new_benes']]  # drop year/month string cols
+    df['monthly_new_benes'] = df['total_beneficiaries'].diff().fillna(0)
     return df
 
 df = load_data()
 
-# print(df[['report_date', 'tot_benes']].to_string())
+# print(df[['report_date', 'total_beneficiaries']].to_string())
 
 # -----------------------------
 # Streamlit UI
@@ -57,8 +48,8 @@ st.title("U.S. Medicare Enrollment")
 option = st.radio("View:", ('Cumulative Total', 'Monthly New Beneficiaries'))
 
 if option == 'Cumulative Total':
-    plot_df = df[['report_date', 'tot_benes']].copy()
-    plot_df['y'] = (plot_df['tot_benes'] / 1_000_000).round(1)
+    plot_df = df[['report_date', 'total_beneficiaries']].copy()
+    plot_df['y'] = (plot_df['total_beneficiaries'] / 1_000_000).round(1)
     plot_df['label'] = plot_df['y'].astype(str) + 'M'
 
     chart = alt.Chart(plot_df, title='Total Medicare Beneficiaries').mark_line().encode(
@@ -92,7 +83,7 @@ st.altair_chart(chart, width='stretch')
 # option = st.radio("View:", ('Cumulative Total', 'Monthly New Beneficiaries'))
 
 # if option == 'Cumulative Total':
-#     fig = px.line(df, x='report_date', y=df['tot_benes'] / 1_000_000,
+#     fig = px.line(df, x='report_date', y=df['total_beneficiaries'] / 1_000_000,
 #                   labels={'report_date': 'Date', 'y': 'Beneficiaries'},
 #                   title='Total Medicare Beneficiaries')
 #     fig.update_traces(
