@@ -1,5 +1,5 @@
 """
-dags/medicare_enrollment_load.py
+dags/medicare_enrollment_load_postgres.py
 
 Loads Medicare Monthly Enrollment data from a local parquet file into PostgreSQL.
 
@@ -8,13 +8,11 @@ Strategy: Full reload — drops and recreates the table each run
 
 Usage:
     Trigger manually from the Airflow UI or CLI:
-    docker exec -it airflow_webserver airflow dags trigger medicare_enrollment_load
+    docker exec -it airflow_webserver airflow dags trigger medicare_enrollment_load_postgres
 """
 
 from __future__ import annotations
-
 from pathlib import Path
-
 import pandas as pd
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -76,7 +74,8 @@ def load_to_postgres() -> None:
     print(f"Successfully loaded {len(df):,} rows into {TARGET_SCHEMA}.{TARGET_TABLE}")
 
     # Quick sanity check
-    row_count = hook.get_first(f"SELECT COUNT(*) FROM {TARGET_SCHEMA}.{TARGET_TABLE}")[0]
+    query = f"SELECT COUNT(*) FROM {TARGET_SCHEMA}.{TARGET_TABLE}"
+    row_count = hook.get_first(query)[0]
     print(f"Row count confirmed in postgres: {row_count:,}")
 
 
@@ -84,9 +83,9 @@ def load_to_postgres() -> None:
 # DAG definition
 # -----------------------------
 with DAG(
-    dag_id="medicare_enrollment_load",
+    dag_id="medicare_enrollment_load_postgres",
     description="Full reload of Medicare Monthly Enrollment data into PostgreSQL",
-    schedule_interval=None,   # manual trigger only
+    schedule=None,   # manual trigger only
     start_date=datetime(2025, 1, 1),
     catchup=False,
     tags=["medicare", "enrollment", "ingestion"],
