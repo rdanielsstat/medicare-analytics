@@ -1,0 +1,107 @@
+version: "3.9"
+
+# -----------------------------
+# AWS / EC2 deployment
+# -----------------------------
+# Differences from local docker-compose.yml:
+#   - No postgres service (Redshift Serverless is the warehouse)
+#   - No pgadmin service
+#   - Airflow metadata DB points to a lightweight SQLite or external RDS
+#   - Data dir mounts to EC2 filesystem for temporary parquet staging
+#   - dbt runs inside the airflow container (same as local)
+#
+# Setup on EC2:
+#   1. Clone repo
+#   2. Copy .env.aws.example to .env and fill in values
+#   3. docker compose -f docker-compose.aws.yml up -d
+#   4. Create airflow admin user (see README)
+#   5. Set Airflow Variables for S3, Redshift (see README)
+
+services:
+
+  # -------------------------
+  # Airflow — DB init (runs once and exits)
+  # -------------------------
+  airflow-init:
+    image: apache/airflow:2.7.2
+    container_name: airflow_init
+    environment:
+      _AIRFLOW_UID: ${AIRFLOW_UID}
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      # AWS credentials passed through to containers
+      AWS_DEFAULT_REGION: ${AWS_REGION}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - ./medicare_dbt:/opt/airflow/dbt/medicare_dbt
+      - ./dbt_profiles:/opt/airflow/dbt/profiles
+      - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
+      - ./logs:/opt/airflow/logs
+    command: airflow db init
+    networks:
+      - airflow-network
+
+  # -------------------------
+  # Airflow — Scheduler
+  # -------------------------
+  airflow-scheduler:
+    image: apache/airflow:2.7.2
+    container_name: airflow_scheduler
+    environment:
+      _AIRFLOW_UID: ${AIRFLOW_UID}
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AWS_DEFAULT_REGION: ${AWS_REGION}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - ./medicare_dbt:/opt/airflow/dbt/medicare_dbt
+      - ./dbt_profiles:/opt/airflow/dbt/profiles
+      - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
+      - ./logs:/opt/airflow/logs
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: airflow scheduler
+    restart: unless-stopped
+    networks:
+      - airflow-network
+
+  # -------------------------
+  # Airflow — Webserver
+  # -------------------------
+  airflow-webserver:
+    image: apache/airflow:2.7.2
+    container_name: airflow_webserver
+    environment:
+      _AIRFLOW_UID: ${AIRFLOW_UID}
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AWS_DEFAULT_REGION: ${AWS_REGION}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - ./medicare_dbt:/opt/airflow/dbt/medicare_dbt
+      - ./dbt_profiles:/opt/airflow/dbt/profiles
+      - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
+      - ./logs:/opt/airflow/logs
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    command: airflow webserver
+    restart: unless-stopped
+    networks:
+      - airflow-network
+
+networks:
+  airflow-network:
+    driver: bridge

@@ -14,6 +14,10 @@ Usage:
 """
 from __future__ import annotations
 
+import sys
+# Make src/ importable inside the Airflow container
+sys.path.insert(0, "/opt/airflow")
+
 import logging
 from datetime import datetime
 from pathlib import Path
