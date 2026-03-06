@@ -1,0 +1,24 @@
+# Copy this file to terraform.tfvars and fill in your values
+# terraform.tfvars is gitignored — never commit it
+
+aws_region     = "us-east-1"
+environment    = "dev"
+project        = "medicare-analytics"
+
+# S3
+# Must be globally unique across all AWS accounts
+s3_raw_bucket_name = "medicare-analytics-raw-your-unique-suffix"
+
+# Redshift Serverless
+redshift_admin_username = "admin"
+redshift_admin_password = "your-strong-password-here"
+redshift_database_name  = "medicare_db"
+redshift_base_capacity  = 32
+
+# EC2
+ec2_instance_type = "t3.medium"
+ec2_key_pair_name = "your-key-pair-name"
+
+# Your home IP in CIDR notation — find it at https://checkip.amazonaws.com
+# Add /32 to the end e.g. "1.2.3.4/32"
+allowed_ssh_cidr = "your-ip/32"

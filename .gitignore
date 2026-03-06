@@ -27,3 +27,6 @@ data/
 commands
 
 dags_archive/
+
+.terraform/
+terraform.tfvars
