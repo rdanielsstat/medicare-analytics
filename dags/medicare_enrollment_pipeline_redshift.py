@@ -31,8 +31,6 @@ sys.path.insert(0, "/opt/airflow")
 
 import logging
 import os
-import pyarrow as pa
-import pyarrow.parquet as pq
 from datetime import datetime
 from pathlib import Path
 
@@ -150,26 +148,23 @@ def download_from_api(**context) -> str:
     session.mount("https://", HTTPAdapter(max_retries=retry))
 
     page_size = context["dag_run"].conf.get("page_size", 5000)
-    all_rows_count, offset, writer = 0, 0, None
+    all_rows, offset = [], 0
     while True:
         response = session.get(API_URL, params={"offset": offset, "size": page_size}, timeout=60)
         response.raise_for_status()
         page = response.json()
         if not page:
             break
-        chunk_df = pd.DataFrame(page)
-        cols_to_cast = [c for c in NUMERIC_COLS if c in chunk_df.columns]
-        chunk_df[cols_to_cast] = chunk_df[cols_to_cast].apply(pd.to_numeric, errors="coerce")
-        table = pa.Table.from_pandas(chunk_df)
-        if writer is None:
-            writer = pq.ParquetWriter(out_path, table.schema, compression="snappy")
-        writer.write_table(table)
-        all_rows_count += len(page)
+        all_rows.extend(page)
         offset += len(page)
-        logger.info("Fetched %d rows so far", all_rows_count)
-    if writer:
-        writer.close()
-    logger.info("Saved %d rows to %s", all_rows_count, out_path)
+        logger.info("Fetched %d rows so far", len(all_rows))
+
+    df = pd.DataFrame(all_rows)
+    cols_to_cast = [c for c in NUMERIC_COLS if c in df.columns]
+    df[cols_to_cast] = df[cols_to_cast].apply(pd.to_numeric, errors="coerce")
+
+    df.to_parquet(out_path, engine="pyarrow", index=False, compression="snappy")
+    logger.info("Saved %d rows to %s", len(df), out_path)
 
     context["ti"].xcom_push(key="parquet_path", value=str(out_path))
     return str(out_path)

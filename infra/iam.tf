@@ -49,6 +49,7 @@ resource "aws_iam_role_policy" "ec2_redshift_policy" {
       Action = [
         "redshift-serverless:GetWorkgroup",
         "redshift-serverless:GetNamespace",
+        "redshift-serverless:GetCredentials",
         "redshift-data:ExecuteStatement",
         "redshift-data:GetStatementResult",
         "redshift-data:DescribeStatement"
