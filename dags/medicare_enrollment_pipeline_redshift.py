@@ -226,6 +226,8 @@ def load_s3_to_redshift(**context) -> None:
     client = boto3.client("redshift-data", region_name=region)
 
     def run_sql(sql: str) -> None:
+        print(f"Running SQL against workgroup={workgroup}, database={database}")
+        print(f"SQL: {sql[:200]}")  # first 200 chars
         response = client.execute_statement(
             WorkgroupName=workgroup,
             Database=database,
