@@ -55,7 +55,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - ./medicare_dbt:/opt/airflow/dbt/medicare_dbt
-    # - ./dbt_profiles:/opt/airflow/dbt/profiles
+      - ./dbt_profiles:/opt/airflow/dbt/profiles
       - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
       - ./logs:/opt/airflow/logs
     depends_on:
@@ -94,7 +94,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - ./medicare_dbt:/opt/airflow/dbt/medicare_dbt
-    # - ./dbt_profiles:/opt/airflow/dbt/profiles
+      - ./dbt_profiles:/opt/airflow/dbt/profiles
       - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
       - ./logs:/opt/airflow/logs
     depends_on:
@@ -126,7 +126,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - ./medicare_dbt:/opt/airflow/dbt/medicare_dbt
-    # - ./dbt_profiles:/opt/airflow/dbt/profiles
+      - ./dbt_profiles:/opt/airflow/dbt/profiles
       - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
       - ./logs:/opt/airflow/logs
     depends_on:
