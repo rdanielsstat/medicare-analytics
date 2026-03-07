@@ -1,10 +1,7 @@
-version: "3.9"
-
 # -----------------------------
 # AWS / EC2 deployment
 # -----------------------------
 # Differences from local docker-compose.yml:
-#   - No postgres service (Redshift Serverless is the warehouse)
 #   - No pgadmin service
 #   - Airflow metadata DB points to a lightweight SQLite or external RDS
 #   - Data dir mounts to EC2 filesystem for temporary parquet staging
@@ -18,6 +15,27 @@ version: "3.9"
 #   5. Set Airflow Variables for S3, Redshift (see README)
 
 services:
+
+  # -------------------------
+  # PostgreSQL — Airflow metadata only
+  # -------------------------
+  postgres:
+    image: postgres:17
+    container_name: airflow_postgres
+    environment:
+      POSTGRES_USER: ${AIRFLOW_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD}
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    networks:
+      - airflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AIRFLOW_POSTGRES_USER} -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   # -------------------------
   # Airflow — DB init (runs once and exits)
@@ -37,10 +55,24 @@ services:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - ./medicare_dbt:/opt/airflow/dbt/medicare_dbt
-      - ./dbt_profiles:/opt/airflow/dbt/profiles
+    # - ./dbt_profiles:/opt/airflow/dbt/profiles
       - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
       - ./logs:/opt/airflow/logs
-    command: airflow db init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - bash
+      - -c
+      - |
+        airflow db init &&
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com || true
     networks:
       - airflow-network
 
@@ -61,7 +93,7 @@ services:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - ./medicare_dbt:/opt/airflow/dbt/medicare_dbt
-      - ./dbt_profiles:/opt/airflow/dbt/profiles
+    # - ./dbt_profiles:/opt/airflow/dbt/profiles
       - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
       - ./logs:/opt/airflow/logs
     depends_on:
@@ -85,13 +117,14 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AWS_DEFAULT_REGION: ${AWS_REGION}
+      AIRFLOW__WEBSERVER__SHOW_TRIGGER_FORM_IF_NO_PARAMS: "True"
     ports:
       - "8080:8080"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
       - ./medicare_dbt:/opt/airflow/dbt/medicare_dbt
-      - ./dbt_profiles:/opt/airflow/dbt/profiles
+    # - ./dbt_profiles:/opt/airflow/dbt/profiles
       - ./data/raw/enrollment:/opt/airflow/data/raw/enrollment
       - ./logs:/opt/airflow/logs
     depends_on:
@@ -105,3 +138,6 @@ services:
 networks:
   airflow-network:
     driver: bridge
+
+volumes:
+  airflow_postgres_data:
