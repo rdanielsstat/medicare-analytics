@@ -244,8 +244,8 @@ def load_s3_to_redshift(**context) -> None:
     # Create table if not exists with sort key for query performance
     run_sql(f"""
         CREATE TABLE IF NOT EXISTS {TARGET_SCHEMA}.{TARGET_TABLE} (
-            year                                          VARCHAR(4),
-            month                                         VARCHAR(2),
+            year                                          VARCHAR(10),
+            month                                         VARCHAR(10),
             bene_geo_lvl                                  VARCHAR(50),
             bene_state_abrvtn                             VARCHAR(2),
             bene_state_desc                               VARCHAR(100),
