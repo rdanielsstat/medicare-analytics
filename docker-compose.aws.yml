@@ -89,6 +89,7 @@ services:
       AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AWS_DEFAULT_REGION: ${AWS_REGION}
+      _PIP_ADDITIONAL_REQUIREMENTS: "dbt-redshift"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
@@ -118,6 +119,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "False"
       AWS_DEFAULT_REGION: ${AWS_REGION}
       AIRFLOW__WEBSERVER__SHOW_TRIGGER_FORM_IF_NO_PARAMS: "True"
+      _PIP_ADDITIONAL_REQUIREMENTS: "dbt-redshift"
     ports:
       - "8080:8080"
     volumes:
