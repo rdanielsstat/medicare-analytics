@@ -19,6 +19,7 @@ by_state as (
     from staging
     where bene_geo_lvl = 'State'
     and month = 'Year'
+    and state != 'UK'
 )
 select * from by_state
 order by year, state
