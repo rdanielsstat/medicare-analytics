@@ -1,16 +1,39 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from sqlalchemy import create_engine
 from dotenv import load_dotenv
 import os
 from pathlib import Path
-import altair as alt
 
 # -----------------------------
 # Load environment variables
 # -----------------------------
 load_dotenv(Path('.') / '.env')
+
+# -----------------------------
+# Detect environment and connect
+# -----------------------------
+REDSHIFT_ENDPOINT = os.getenv("REDSHIFT_ENDPOINT") or st.secrets.get("REDSHIFT_ENDPOINT", None)
+
+@st.cache_resource
+def get_engine():
+    if REDSHIFT_ENDPOINT:
+        import redshift_connector
+        conn = redshift_connector.connect(
+            host=REDSHIFT_ENDPOINT,
+            database=os.getenv("REDSHIFT_DATABASE") or st.secrets["REDSHIFT_DATABASE"],
+            user=os.getenv("REDSHIFT_ADMIN_USERNAME") or st.secrets["REDSHIFT_ADMIN_USERNAME"],
+            password=os.getenv("REDSHIFT_ADMIN_PASSWORD") or st.secrets["REDSHIFT_ADMIN_PASSWORD"],
+            port=5439,
+        )
+        return conn
+    else:
+        from sqlalchemy import create_engine
+        return create_engine(
+            f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+            f"@localhost:{os.getenv('POSTGRES_PORT', 5432)}/{os.getenv('POSTGRES_DB')}"
+        )
+
 
 POSTGRES_USER = os.getenv("POSTGRES_USER")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
@@ -18,32 +41,30 @@ POSTGRES_DB = os.getenv("POSTGRES_DB")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", 5432)
 
 # -----------------------------
-# Connect to Postgres
-# -----------------------------
-engine = create_engine(
-    f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{POSTGRES_PORT}/{POSTGRES_DB}"
-)
-
-# -----------------------------
-# Query total enrollment
+# Query
 # -----------------------------
 query = "SELECT * FROM dbt_medicare.mart_enrollment_national"
 
 @st.cache_data
 def load_data():
-    df = pd.read_sql(query, engine)
+    conn_or_engine = get_engine()
+    if REDSHIFT_ENDPOINT:
+        cursor = conn_or_engine.cursor()
+        cursor.execute(query)
+        df = cursor.fetch_dataframe()
+    else:
+        df = pd.read_sql(query, conn_or_engine)
     df = df.sort_values('report_date').reset_index(drop=True)
     df['monthly_new_benes'] = df['total_beneficiaries'].diff().fillna(0)
     return df
 
 df = load_data()
 
-# print(df[['report_date', 'total_beneficiaries']].to_string())
-
 # -----------------------------
 # Streamlit UI
 # -----------------------------
 # altair version (simpler but less hover formatting control)
+# import altair as alt
 # st.title("U.S. Medicare Enrollment")
 # option = st.radio("View:", ('Cumulative Total', 'Monthly New Beneficiaries'))
 
@@ -79,7 +100,6 @@ df = load_data()
 
 ## plotly version for better hover formatting
 st.title("U.S. Medicare Enrollment")
-
 option = st.radio("View:", ('Cumulative Total', 'Monthly New Beneficiaries'))
 
 if option == 'Cumulative Total':

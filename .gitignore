@@ -30,3 +30,7 @@ dags_archive/
 
 .terraform/
 terraform.tfvars
+
+archive/
+
+secrets.toml

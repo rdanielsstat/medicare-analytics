@@ -1,0 +1,7 @@
+streamlit
+pandas
+plotly
+redshift-connector
+sqlalchemy
+psycopg2-binary
+python-dotenv
