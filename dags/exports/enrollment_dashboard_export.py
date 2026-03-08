@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import logging
-import boto3
 import pandas as pd
 from airflow import DAG
 from airflow.operators.python import PythonOperator
@@ -8,12 +7,14 @@ from airflow.models import Variable
 
 logger = logging.getLogger(__name__)
 
+
 def get_var(key, default=None):
     try:
         return Variable.get(key)
     except Exception:
         import os
         return os.getenv(key, default)
+
 
 def query_to_dataframe(client, workgroup: str, database: str, sql: str) -> pd.DataFrame:
     """Execute a Redshift Data API query and return results as a DataFrame."""
@@ -85,6 +86,7 @@ def export_marts_to_s3(**context) -> None:
         df = query_to_dataframe(redshift, workgroup, "medicare_db", export["sql"])
         upload_to_s3(s3, df, bucket, export["key"])
         logger.info(f"Exported {len(df)} rows → s3://{bucket}/{export['key']}")
+
 
 with DAG(
     dag_id="medicare_dashboard_export",

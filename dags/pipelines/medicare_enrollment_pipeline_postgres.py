@@ -97,6 +97,7 @@ NUMERIC_COLS = [
     "PRSCRPTN_DRUG_NO_LIS_BENES",
 ]
 
+
 # -----------------------------
 # Task functions
 # -----------------------------
@@ -150,6 +151,7 @@ def download_from_api(**context) -> str:
     context["ti"].xcom_push(key="parquet_path", value=str(out_path))
     return str(out_path)
 
+
 def validate_raw_data(**context) -> None:
     """Check the parquet file has expected shape and columns before loading."""
     parquet_path = context["ti"].xcom_pull(task_ids="download_from_api", key="parquet_path")
@@ -176,7 +178,7 @@ def load_to_postgres(**context) -> None:
     df.columns = [c.lower() for c in df.columns]
 
     hook = PostgresHook(postgres_conn_id=CONN_ID)
-    
+
     # Drop with cascade to remove dependent dbt views first
     hook.run(f"DROP TABLE IF EXISTS {TARGET_SCHEMA}.{TARGET_TABLE} CASCADE")
 

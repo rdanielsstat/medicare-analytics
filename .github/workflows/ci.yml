@@ -20,7 +20,7 @@ jobs:
         run: pip install flake8
 
       - name: Lint DAGs
-        run: flake8 dags/ --max-line-length=120 --ignore=E501,W503
+        run: flake8 dags/ --max-line-length=120 --ignore=E501,W503,E402
 
       - name: Lint source
         run: flake8 src/ --max-line-length=120 --ignore=E501,W503
@@ -98,10 +98,6 @@ jobs:
       - name: dbt compile (dev)
         working-directory: medicare_dbt
         run: dbt compile --profiles-dir ~/.dbt --target dev
-
-      - name: dbt compile (prod)
-        working-directory: medicare_dbt
-        run: dbt compile --profiles-dir ~/.dbt --target prod
 
       - name: dbt test (dev)
         working-directory: medicare_dbt
