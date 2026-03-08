@@ -100,6 +100,7 @@ NUMERIC_COLS = [
     "PRSCRPTN_DRUG_NO_LIS_BENES",
 ]
 
+
 # -----------------------------
 # HTTP Session with retry logic
 # -----------------------------
@@ -121,6 +122,7 @@ def build_session(
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
+
 
 # -----------------------------
 # Download
@@ -162,6 +164,7 @@ def download_data(
 
     return all_rows
 
+
 # -----------------------------
 # Transform
 # -----------------------------
@@ -183,6 +186,7 @@ def build_dataframe(records: list[dict]) -> pd.DataFrame:
         )
 
     return df
+
 
 # -----------------------------
 # Main
@@ -209,6 +213,7 @@ def main(release_month: str, page_size: int, force: bool) -> None:
 
     df.to_parquet(out_path, engine="pyarrow", index=False, compression="snappy")
     logger.info("Saved → %s", out_path)
+
 
 # -----------------------------
 # Entry point
