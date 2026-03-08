@@ -20,6 +20,7 @@ AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID") or st.secrets.get("AWS_ACCESS_KEY_ID", None)
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") or st.secrets.get("AWS_SECRET_ACCESS_KEY", None)
 
+
 # -----------------------------
 # Data loading
 # -----------------------------
@@ -31,10 +32,12 @@ def get_s3_client():
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
     )
 
+
 def load_csv_from_s3(key: str) -> pd.DataFrame:
     s3 = get_s3_client()
     obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
     return pd.read_csv(io.BytesIO(obj['Body'].read()))
+
 
 def load_csv_from_postgres(query: str) -> pd.DataFrame:
     from sqlalchemy import create_engine
@@ -43,6 +46,7 @@ def load_csv_from_postgres(query: str) -> pd.DataFrame:
         f"@localhost:{os.getenv('POSTGRES_PORT', 5432)}/{os.getenv('POSTGRES_DB')}"
     )
     return pd.read_sql(query, engine)
+
 
 @st.cache_data
 def load_national() -> pd.DataFrame:
@@ -55,6 +59,7 @@ def load_national() -> pd.DataFrame:
     df['monthly_new_benes'] = df['total_beneficiaries'].diff().fillna(0)
     return df
 
+
 @st.cache_data
 def load_by_state() -> pd.DataFrame:
     if S3_BUCKET:
@@ -64,6 +69,7 @@ def load_by_state() -> pd.DataFrame:
     df['year'] = df['year'].astype(int)
     df['total_beneficiaries'] = pd.to_numeric(df['total_beneficiaries'], errors='coerce')
     return df
+
 
 national_df = load_national()
 state_df = load_by_state()
@@ -106,7 +112,7 @@ state_df = load_by_state()
 
 # st.altair_chart(chart, width='stretch')
 
-## plotly version for better hover formatting
+# plotly version for better hover formatting
 st.title("U.S. Medicare Enrollment")
 
 tab1, tab2 = st.tabs(["National Trends", "Enrollment by State"])
