@@ -205,7 +205,7 @@ if view == "Map":
     )
     fig_map.update_layout(
         coloraxis_colorbar=dict(title='MA %', ticksuffix='%'),
-        geo=dict(showlakes=True, lakecolor='rgb(255,255,255)'),
+        geo=dict(showlakes=False, lakecolor='rgb(255,255,255)'),
         margin=dict(t=50, b=0, l=0, r=0),
         height=500,
     )
