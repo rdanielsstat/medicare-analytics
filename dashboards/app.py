@@ -106,7 +106,7 @@ mom_ffs = latest_ffs - previous['original_medicare_benes']
 # Header
 # -----------------------------
 st.title("U.S. Medicare Enrollment")
-st.caption(f"Data through {latest_date} — Source: Centers for Medicare & Medicaid Services")
+st.caption(f"Data through {latest_date} | Source: Centers for Medicare & Medicaid Services")
 
 st.divider()
 
@@ -158,7 +158,7 @@ with col_kpi:
             delta_color="inverse"
         )
 
-st.caption("Note: Fee-for-Service trends are shown inverse to Medicare Advantage — declining FFS enrollment reflects the ongoing policy shift toward managed care.")
+st.caption("Note: Fee-for-Service trends are shown inverse to Medicare Advantage. Declining FFS enrollment reflects the ongoing policy shift toward managed care.")
 
 st.divider()
 
