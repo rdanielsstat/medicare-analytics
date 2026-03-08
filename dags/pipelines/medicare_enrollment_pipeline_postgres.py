@@ -173,7 +173,6 @@ def validate_raw_data(**context) -> None:
 
 def load_to_postgres(**context) -> None:
     """Full reload of parquet into postgres. Skips if data already loaded for this release month."""
-    release_month = context["dag_run"].conf.get("release_month")
     force = context["dag_run"].conf.get("force", False)
 
     hook = PostgresHook(postgres_conn_id=CONN_ID)
