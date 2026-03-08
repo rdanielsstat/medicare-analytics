@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install flake8
+        run: pip install flake8
+
+      - name: Lint DAGs
+        run: flake8 dags/ --max-line-length=120 --ignore=E501,W503
+
+      - name: Lint source
+        run: flake8 src/ --max-line-length=120 --ignore=E501,W503
+
+      - name: Lint dashboards
+        run: flake8 dashboards/ --max-line-length=120 --ignore=E501,W503
+
+  dbt:
+    name: Validate dbt
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+      POSTGRES_PORT: 5432
+      REDSHIFT_ENDPOINT: dummy.redshift.amazonaws.com
+      REDSHIFT_DATABASE: medicare_db
+      REDSHIFT_ADMIN_USERNAME: admin
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: airflow
+          POSTGRES_PASSWORD: airflow
+          POSTGRES_DB: airflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dbt
+        run: pip install dbt-postgres dbt-redshift
+
+      - name: Create dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          medicare_dbt:
+            target: dev
+            outputs:
+              dev:
+                type: postgres
+                host: localhost
+                port: 5432
+                user: airflow
+                password: airflow
+                dbname: airflow
+                schema: dbt_medicare
+                threads: 4
+              prod:
+                type: redshift
+                method: iam
+                host: dummy.redshift.amazonaws.com
+                port: 5439
+                dbname: medicare_db
+                schema: dbt_medicare
+                threads: 4
+                ra3_node: true
+                region: us-east-1
+                user: admin
+          EOF
+
+      - name: dbt compile (dev)
+        working-directory: medicare_dbt
+        run: dbt compile --profiles-dir ~/.dbt --target dev
+
+      - name: dbt compile (prod)
+        working-directory: medicare_dbt
+        run: dbt compile --profiles-dir ~/.dbt --target prod
+
+      - name: dbt test (dev)
+        working-directory: medicare_dbt
+        run: dbt test --profiles-dir ~/.dbt --target dev
