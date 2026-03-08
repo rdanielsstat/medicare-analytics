@@ -19,8 +19,6 @@ cleaned as (
         male_tot_benes              as male_beneficiaries,
         female_tot_benes            as female_beneficiaries
     from source
-    where month != 'Year'
-      and year != 'Year'
 )
 
 select * from cleaned

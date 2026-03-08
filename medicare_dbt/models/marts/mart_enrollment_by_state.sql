@@ -2,7 +2,7 @@ with staging as (
     select * from {{ ref('stg_medicare_enrollment') }}
 ),
 by_state as (
-    select
+    select 
         year,
         state,
         state_name,
@@ -14,10 +14,9 @@ by_state as (
         sum(disabled_beneficiaries)     as disabled_beneficiaries,
         sum(male_beneficiaries)         as male_beneficiaries,
         sum(female_beneficiaries)       as female_beneficiaries
-    from staging
-    where bene_geo_lvl = 'State'
-    and month != 'Year'
-    group by year, state, state_name, fips_code
+      from staging
+     where bene_geo_lvl = 'State'
+       and month = 'Year'
 )
 select * from by_state
 order by year, state

@@ -3,7 +3,7 @@ with staging as (
 ),
 
 national as (
-    select
+    select 
         {% if target.type == 'redshift' %}
         TO_DATE(CAST(year AS VARCHAR) || '-' ||
             case month
@@ -30,8 +30,9 @@ national as (
         disabled_beneficiaries,
         male_beneficiaries,
         female_beneficiaries
-    from staging
-    where bene_geo_lvl = 'National'
+      from staging
+     where bene_geo_lvl = 'National'
+       and month != 'Year'
 )
 
 select * from national
