@@ -174,7 +174,7 @@ Six-step Airflow DAG (`medicare_enrollment_pipeline_redshift`):
 
 ### Dashboard Export Pipeline
 
-Separate DAG (`medicare_dashboard_export`) runs daily after the main pipeline:
+Separate DAG (`medicare_dashboard_export`) scheduled to run daily after the main pipeline:
 
 - Queries both mart tables from Redshift via the Data API
 - Writes `enrollment_national.csv` and `enrollment_by_state.csv` to S3
