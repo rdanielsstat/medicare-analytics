@@ -1,35 +1,5 @@
 version: 2
 
-sources:
-  - name: medicare
-    description: "Raw Medicare enrollment data loaded from CMS monthly parquet files via Airflow COPY jobs."
-    database: medicare_db
-    schema: public
-    tables:
-      - name: medicare_monthly_enrollment
-        description: "Monthly Medicare enrollment counts by geography, plan type, age, and sex. Published by the Centers for Medicare & Medicaid Services."
-        columns:
-          - name: year
-            description: "Enrollment year as a string. Values include individual years and 'Year' for annual totals."
-          - name: month
-            description: "Enrollment month as a full month name (e.g. 'January'). Value of 'Year' indicates an annual summary row."
-          - name: bene_geo_lvl
-            description: "Geographic aggregation level: National, State, or County."
-          - name: bene_state_abrvtn
-            description: "Two-letter state abbreviation."
-          - name: bene_state_desc
-            description: "Full state name."
-          - name: bene_county_desc
-            description: "County name. Null for National and State level rows."
-          - name: bene_fips_cd
-            description: "Five-digit FIPS code for the geographic area."
-          - name: tot_benes
-            description: "Total Medicare beneficiaries."
-          - name: orgnl_mdcr_benes
-            description: "Beneficiaries enrolled in Original Medicare (Fee-for-Service)."
-          - name: ma_and_oth_benes
-            description: "Beneficiaries enrolled in Medicare Advantage and other managed care plans."
-
 models:
   - name: stg_medicare_enrollment
     description: "Cleaned and standardized Medicare enrollment data. Passes through all geographic levels and months for downstream mart filtering. Column names are renamed for readability."

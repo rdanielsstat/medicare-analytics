@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import boto3
 import io
 import os
@@ -27,6 +26,7 @@ S3_BUCKET = os.getenv("S3_BUCKET") or st.secrets.get("S3_BUCKET", None)
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID") or st.secrets.get("AWS_ACCESS_KEY_ID", None)
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") or st.secrets.get("AWS_SECRET_ACCESS_KEY", None)
+
 
 # -----------------------------
 # Data loading
@@ -301,3 +301,4 @@ with col_area:
         height=400,
     )
     st.plotly_chart(fig_area, use_container_width=True)
+    
