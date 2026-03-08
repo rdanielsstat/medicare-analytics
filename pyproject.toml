@@ -19,4 +19,5 @@ dependencies = [
     "altair>=4.0,<5.0",
     "watchdog>=6.0.0",
     "plotly>=6.5.2",
+    "redshift-connector>=2.1.12",
 ]
