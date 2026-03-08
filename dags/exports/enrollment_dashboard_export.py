@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import logging
 import boto3
+import pandas as pd
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.models import Variable
