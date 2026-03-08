@@ -92,6 +92,7 @@ services:
       _PIP_ADDITIONAL_REQUIREMENTS: "dbt-redshift"
       REDSHIFT_ENDPOINT: ${REDSHIFT_ENDPOINT}
       REDSHIFT_DATABASE: ${REDSHIFT_DATABASE}
+      REDSHIFT_ADMIN_USERNAME: ${REDSHIFT_ADMIN_USERNAME}
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
@@ -124,6 +125,7 @@ services:
       _PIP_ADDITIONAL_REQUIREMENTS: "dbt-redshift"
       REDSHIFT_ENDPOINT: ${REDSHIFT_ENDPOINT}
       REDSHIFT_DATABASE: ${REDSHIFT_DATABASE}
+      REDSHIFT_ADMIN_USERNAME: ${REDSHIFT_ADMIN_USERNAME}
     ports:
       - "8080:8080"
     volumes:
