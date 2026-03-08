@@ -172,14 +172,28 @@ def validate_raw_data(**context) -> None:
 
 
 def load_to_postgres(**context) -> None:
-    """Full reload of parquet into postgres."""
+    """Full reload of parquet into postgres. Skips if data already loaded for this release month."""
+    release_month = context["dag_run"].conf.get("release_month")
+    force = context["dag_run"].conf.get("force", False)
+
+    hook = PostgresHook(postgres_conn_id=CONN_ID)
+
+    # Skip if table exists and has data, unless force=True
+    if not force:
+        try:
+            row_count = hook.get_first(
+                f"SELECT COUNT(*) FROM {TARGET_SCHEMA}.{TARGET_TABLE}"
+            )[0]
+            if row_count > 0:
+                logger.info("Table already has %d rows — skipping load. Pass force=true to override.", row_count)
+                return
+        except Exception:
+            pass  # Table doesn't exist yet, proceed with load
+
     parquet_path = context["ti"].xcom_pull(task_ids="download_from_api", key="parquet_path")
     df = pd.read_parquet(parquet_path, engine="pyarrow")
     df.columns = [c.lower() for c in df.columns]
 
-    hook = PostgresHook(postgres_conn_id=CONN_ID)
-
-    # Drop with cascade to remove dependent dbt views first
     hook.run(f"DROP TABLE IF EXISTS {TARGET_SCHEMA}.{TARGET_TABLE} CASCADE")
 
     engine = hook.get_sqlalchemy_engine()
