@@ -13,47 +13,34 @@ load_dotenv(Path('.') / '.env')
 # -----------------------------
 # Detect environment and connect
 # -----------------------------
-REDSHIFT_ENDPOINT = os.getenv("REDSHIFT_ENDPOINT") or st.secrets.get("REDSHIFT_ENDPOINT", None)
-
-@st.cache_resource
-def get_engine():
-    if REDSHIFT_ENDPOINT:
-        import redshift_connector
-        conn = redshift_connector.connect(
-            host=REDSHIFT_ENDPOINT,
-            database=os.getenv("REDSHIFT_DATABASE") or st.secrets["REDSHIFT_DATABASE"],
-            user=os.getenv("REDSHIFT_ADMIN_USERNAME") or st.secrets["REDSHIFT_ADMIN_USERNAME"],
-            password=os.getenv("REDSHIFT_ADMIN_PASSWORD") or st.secrets["REDSHIFT_ADMIN_PASSWORD"],
-            port=5439,
-        )
-        return conn
-    else:
-        from sqlalchemy import create_engine
-        return create_engine(
-            f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
-            f"@localhost:{os.getenv('POSTGRES_PORT', 5432)}/{os.getenv('POSTGRES_DB')}"
-        )
-
-
-POSTGRES_USER = os.getenv("POSTGRES_USER")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-POSTGRES_DB = os.getenv("POSTGRES_DB")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", 5432)
-
-# -----------------------------
-# Query
-# -----------------------------
-query = "SELECT * FROM dbt_medicare.mart_enrollment_national"
+S3_BUCKET = os.getenv("S3_BUCKET") or st.secrets.get("S3_BUCKET", None)
+S3_KEY = "exports/mart_enrollment_national/enrollment_national.csv"
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID") or st.secrets.get("AWS_ACCESS_KEY_ID", None)
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY") or st.secrets.get("AWS_SECRET_ACCESS_KEY", None)
 
 @st.cache_data
 def load_data():
-    conn_or_engine = get_engine()
-    if REDSHIFT_ENDPOINT:
-        cursor = conn_or_engine.cursor()
-        cursor.execute(query)
-        df = cursor.fetch_dataframe()
+    if S3_BUCKET:
+        import boto3
+        import io
+        s3 = boto3.client(
+            "s3",
+            region_name=AWS_REGION,
+            aws_access_key_id=AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        )
+        obj = s3.get_object(Bucket=S3_BUCKET, Key=S3_KEY)
+        df = pd.read_csv(io.BytesIO(obj['Body'].read()))
     else:
-        df = pd.read_sql(query, conn_or_engine)
+        from sqlalchemy import create_engine
+        engine = create_engine(
+            f"postgresql+psycopg2://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+            f"@localhost:{os.getenv('POSTGRES_PORT', 5432)}/{os.getenv('POSTGRES_DB')}"
+        )
+        df = pd.read_sql("SELECT * FROM dbt_medicare.mart_enrollment_national", engine)
+
+    df['report_date'] = pd.to_datetime(df['report_date'])
     df = df.sort_values('report_date').reset_index(drop=True)
     df['monthly_new_benes'] = df['total_beneficiaries'].diff().fillna(0)
     return df
