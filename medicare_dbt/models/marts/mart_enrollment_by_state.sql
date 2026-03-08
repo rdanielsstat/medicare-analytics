@@ -15,7 +15,7 @@ by_state as (
         male_beneficiaries,
         female_beneficiaries,
         ROUND((medicare_advantage_benes / NULLIF(total_beneficiaries, 0) * 100)::numeric, 1) AS ma_penetration_rate,
-        ROUND((original_medicare_benes / NULLIF(total_beneficiaries, 0) * 100)::numeric, 1)  AS ffs_penetration_rate,
+        ROUND((original_medicare_benes / NULLIF(total_beneficiaries, 0) * 100)::numeric, 1)  AS ffs_penetration_rate
     from staging
     where bene_geo_lvl = 'State'
     and month = 'Year'
