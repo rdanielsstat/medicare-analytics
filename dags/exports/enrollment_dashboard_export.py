@@ -17,29 +17,20 @@ def get_var(key, default=None):
 def export_mart_to_s3(**context) -> None:
     """Export mart_enrollment_national from Redshift to S3 as CSV for dashboard."""
     import time
+    import boto3
+    import pandas as pd
+    import io
 
     workgroup = get_var("REDSHIFT_WORKGROUP", "medicare-analytics-workgroup")
     region = get_var("AWS_REGION", "us-east-1")
     bucket = get_var("S3_BUCKET", "medicare-analytics-raw-rdaniels")
-    iam_role = get_var("REDSHIFT_IAM_ROLE")
 
-    s3_path = f"s3://{bucket}/exports/mart_enrollment_national/"
-
-    sql = f"""
-        UNLOAD ('SELECT * FROM dbt_medicare.mart_enrollment_national ORDER BY report_date')
-        TO '{s3_path}'
-        IAM_ROLE '{iam_role}'
-        FORMAT CSV
-        HEADER
-        PARALLEL OFF
-        ALLOWOVERWRITE;
-    """
-
+    # Query Redshift via Data API
     client = boto3.client("redshift-data", region_name=region)
     response = client.execute_statement(
         WorkgroupName=workgroup,
         Database="medicare_db",
-        Sql=sql,
+        Sql="SELECT * FROM dbt_medicare.mart_enrollment_national ORDER BY report_date",
     )
     statement_id = response["Id"]
     while True:
@@ -48,10 +39,28 @@ def export_mart_to_s3(**context) -> None:
         if status == "FINISHED":
             break
         elif status in ("FAILED", "ABORTED"):
-            raise RuntimeError(f"Export failed: {desc.get('Error')}")
+            raise RuntimeError(f"Query failed: {desc.get('Error')}")
         time.sleep(2)
 
-    logger.info(f"Mart exported to {s3_path}")
+    # Fetch results and convert to dataframe
+    results = client.get_statement_result(Id=statement_id)
+    columns = [col["name"] for col in results["ColumnMetadata"]]
+    rows = [[field.get("stringValue") or field.get("doubleValue") or field.get("longValue") 
+             for field in record] for record in results["Records"]]
+    df = pd.DataFrame(rows, columns=columns)
+
+    # Upload to S3 as CSV
+    s3 = boto3.client("s3", region_name=region)
+    buffer = io.StringIO()
+    df.to_csv(buffer, index=False)
+    s3.put_object(
+        Bucket=bucket,
+        Key="exports/mart_enrollment_national/enrollment_national.csv",
+        Body=buffer.getvalue(),
+        ContentType="text/csv",
+    )
+
+    logger.info(f"Exported {len(df)} rows to s3://{bucket}/exports/mart_enrollment_national/enrollment_national.csv")
 
 
 with DAG(
