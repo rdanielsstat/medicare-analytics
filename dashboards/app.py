@@ -301,4 +301,3 @@ with col_area:
         height=400,
     )
     st.plotly_chart(fig_area, use_container_width=True)
-    
