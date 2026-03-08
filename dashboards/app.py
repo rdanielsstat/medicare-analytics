@@ -158,6 +158,8 @@ with col_kpi:
             delta_color="inverse"
         )
 
+st.caption("Note: Fee-for-Service trends are shown inverse to Medicare Advantage — declining FFS enrollment reflects the ongoing policy shift toward managed care.")
+
 st.divider()
 
 # -----------------------------
