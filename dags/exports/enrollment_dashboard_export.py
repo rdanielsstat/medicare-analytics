@@ -14,23 +14,14 @@ def get_var(key, default=None):
         import os
         return os.getenv(key, default)
 
-def export_mart_to_s3(**context) -> None:
-    """Export mart_enrollment_national from Redshift to S3 as CSV for dashboard."""
+def query_to_dataframe(client, workgroup: str, database: str, sql: str) -> pd.DataFrame:
+    """Execute a Redshift Data API query and return results as a DataFrame."""
     import time
-    import boto3
-    import pandas as pd
-    import io
 
-    workgroup = get_var("REDSHIFT_WORKGROUP", "medicare-analytics-workgroup")
-    region = get_var("AWS_REGION", "us-east-1")
-    bucket = get_var("S3_BUCKET", "medicare-analytics-raw-rdaniels")
-
-    # Query Redshift via Data API
-    client = boto3.client("redshift-data", region_name=region)
     response = client.execute_statement(
         WorkgroupName=workgroup,
-        Database="medicare_db",
-        Sql="SELECT * FROM dbt_medicare.mart_enrollment_national ORDER BY report_date",
+        Database=database,
+        Sql=sql,
     )
     statement_id = response["Id"]
     while True:
@@ -42,26 +33,57 @@ def export_mart_to_s3(**context) -> None:
             raise RuntimeError(f"Query failed: {desc.get('Error')}")
         time.sleep(2)
 
-    # Fetch results and convert to dataframe
     results = client.get_statement_result(Id=statement_id)
     columns = [col["name"] for col in results["ColumnMetadata"]]
-    rows = [[field.get("stringValue") or field.get("doubleValue") or field.get("longValue") 
-             for field in record] for record in results["Records"]]
-    df = pd.DataFrame(rows, columns=columns)
+    rows = [
+        [field.get("stringValue") or field.get("doubleValue") or field.get("longValue")
+         for field in record]
+        for record in results["Records"]
+    ]
+    return pd.DataFrame(rows, columns=columns)
 
-    # Upload to S3 as CSV
-    s3 = boto3.client("s3", region_name=region)
+
+def upload_to_s3(s3_client, df: pd.DataFrame, bucket: str, key: str) -> None:
+    """Upload a DataFrame to S3 as CSV."""
+    import io
     buffer = io.StringIO()
     df.to_csv(buffer, index=False)
-    s3.put_object(
+    s3_client.put_object(
         Bucket=bucket,
-        Key="exports/mart_enrollment_national/enrollment_national.csv",
+        Key=key,
         Body=buffer.getvalue(),
         ContentType="text/csv",
     )
 
-    logger.info(f"Exported {len(df)} rows to s3://{bucket}/exports/mart_enrollment_national/enrollment_national.csv")
 
+def export_marts_to_s3(**context) -> None:
+    """Export all dashboard marts from Redshift to S3 as CSV."""
+    import boto3
+
+    workgroup = get_var("REDSHIFT_WORKGROUP", "medicare-analytics-workgroup")
+    region = get_var("AWS_REGION", "us-east-1")
+    bucket = get_var("S3_BUCKET", "medicare-analytics-raw-rdaniels")
+
+    redshift = boto3.client("redshift-data", region_name=region)
+    s3 = boto3.client("s3", region_name=region)
+
+    exports = [
+        {
+            "sql": "SELECT * FROM dbt_medicare.mart_enrollment_national ORDER BY report_date",
+            "key": "exports/mart_enrollment_national/enrollment_national.csv",
+            "description": "national enrollment",
+        },
+        {
+            "sql": "SELECT * FROM dbt_medicare.mart_enrollment_by_state ORDER BY year, state",
+            "key": "exports/mart_enrollment_by_state/enrollment_by_state.csv",
+            "description": "enrollment by state",
+        },
+    ]
+
+    for export in exports:
+        df = query_to_dataframe(redshift, workgroup, "medicare_db", export["sql"])
+        upload_to_s3(s3, df, bucket, export["key"])
+        logger.info(f"Exported {len(df)} rows → s3://{bucket}/{export['key']}")
 
 with DAG(
     dag_id="medicare_dashboard_export",
@@ -77,6 +99,6 @@ with DAG(
 ) as dag:
 
     t1 = PythonOperator(
-        task_id="export_mart_to_s3",
-        python_callable=export_mart_to_s3,
+        task_id="export_marts_to_s3",
+        python_callable=export_marts_to_s3,
     )
