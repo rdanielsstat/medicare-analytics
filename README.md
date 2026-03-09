@@ -207,12 +207,14 @@ The dbt project (`medicare_dbt`) uses a two-layer model:
 
 ### dbt Documentation
 
-Generate and serve dbt docs locally:
+Live dbt documentation (lineage graph, model descriptions, column definitions):
+https://rdanielsstat.github.io/medicare-analytics/
 
+To regenerate docs locally:
 ```bash
 cd medicare_dbt
-dbt docs generate --profiles-dir ../dbt_profiles
-dbt docs serve --profiles-dir ../dbt_profiles
+dbt docs generate --profiles-dir ../dbt_profiles --target dev
+dbt docs serve --profiles-dir ../dbt_profiles --target dev
 ```
 
 ---
