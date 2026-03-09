@@ -4,6 +4,8 @@ An end-to-end data engineering project that ingests, transforms, and visualizes 
 
 Live dashboard: [Medicare Enrollment Dashboard](https://medicare-analytics.streamlit.app/)
 
+Live documentation: [dbt docs](https://rdanielsstat.github.io/medicare-analytics/)
+
 ---
 
 ## Overview
