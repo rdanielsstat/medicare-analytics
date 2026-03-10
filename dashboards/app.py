@@ -134,7 +134,7 @@ with col_donut:
         margin=dict(t=20, b=40, l=20, r=20),
         height=300,
     )
-    st.plotly_chart(donut, use_container_width=True)
+    st.plotly_chart(donut, width='stretch')
 
 with col_kpi:
     k1, k2, k3 = st.columns(3)
@@ -209,7 +209,7 @@ if view == "Map":
         margin=dict(t=50, b=0, l=0, r=0),
         height=500,
     )
-    st.plotly_chart(fig_map, use_container_width=True)
+    st.plotly_chart(fig_map, width='stretch')
 else:
     table_df = filtered[[
         'state_name', 'state', 'total_beneficiaries',
@@ -225,7 +225,7 @@ else:
     table_df['MA'] = table_df['MA'].apply(lambda x: f"{x:,.0f}")
     table_df['FFS %'] = table_df['FFS %'].apply(lambda x: f"{x:.1f}%")
     table_df['MA %'] = table_df['MA %'].apply(lambda x: f"{x:.1f}%")
-    st.dataframe(table_df, use_container_width=True, hide_index=True)
+    st.dataframe(table_df, width='stretch', hide_index=True)
 
 st.divider()
 
@@ -268,7 +268,7 @@ with col_line:
         margin=dict(t=50, b=60, l=60, r=20),
         height=400,
     )
-    st.plotly_chart(fig_line, use_container_width=True)
+    st.plotly_chart(fig_line, width='stretch')
 
 with col_area:
     fig_area = go.Figure()
@@ -300,4 +300,4 @@ with col_area:
         margin=dict(t=50, b=60, l=60, r=20),
         height=400,
     )
-    st.plotly_chart(fig_area, use_container_width=True)
+    st.plotly_chart(fig_area, width='stretch')
