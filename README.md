@@ -1,24 +1,23 @@
 # Medicare Enrollment Analytics Pipeline
 
-![Airflow](https://img.shields.io/badge/Airflow-2.7.2-017CEE?logo=apacheairflow&logoColor=white)
-![dbt](https://img.shields.io/badge/dbt-1.8.1-FF694B?logo=dbt&logoColor=white)
-![AWS](https://img.shields.io/badge/AWS-S3%20%7C%20Redshift%20%7C%20EC2-232F3E?logo=amazonaws&logoColor=white)
-![OpenTofu](https://img.shields.io/badge/OpenTofu-IaC-FFDA00?logo=opentofu&logoColor=black)
-![Streamlit](https://img.shields.io/badge/Streamlit-Community%20Cloud-FF4B4B?logo=streamlit&logoColor=white)
+![Airflow](https://img.shields.io/badge/Airflow-017CEE?logo=apacheairflow&logoColor=white)
+![dbt](https://img.shields.io/badge/dbt-FF694B?logo=dbt&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-232F3E?logo=amazonaws&logoColor=white)
+![OpenTofu](https://img.shields.io/badge/OpenTofu-FFDA00?logo=opentofu&logoColor=black)
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)
 
-An end-to-end data engineering project that ingests, transforms, and visualizes U.S. Medicare enrollment data using a modern cloud-native stack. The pipeline runs on AWS with full infrastructure-as-code, orchestrated by Apache Airflow, transformed with dbt, and visualized through an interactive Streamlit dashboard deployed on Streamlit Community Cloud.
+An end-to-end batch data pipeline that ingests, transforms, and visualizes U.S. Medicare enrollment data published monthly by the Centers for Medicare & Medicaid Services (CMS). The pipeline processes enrollment figures for over 65 million beneficiaries across all U.S. states and counties, loading them into a cloud data warehouse and surfacing trends through an interactive dashboard.
 
 Live dashboard: [Medicare Enrollment Dashboard](https://medicare-analytics.streamlit.app/)
-
 Live documentation: [dbt docs](https://rdanielsstat.github.io/medicare-analytics/)
 
 ---
 
 ## Overview
 
-This project builds a production-grade batch data pipeline that processes monthly Medicare enrollment data published by the Centers for Medicare & Medicaid Services (CMS). The data covers enrollment figures for over 65 million beneficiaries across all U.S. states and counties, broken down by plan type, age, sex, and demographic group.
+Medicare enrollment data is published monthly by CMS and covers all 50 states at the national, state, and county level, broken down by plan type, age, sex, and demographic group. Tracking this data over time reveals trends in Medicare Advantage adoption, demographic shifts, and geographic variation in coverage — but the raw CMS files require significant cleaning and transformation before they are analytically useful.
 
-The pipeline ingests raw data from the CMS public API, stages it in Amazon S3, loads it into Amazon Redshift Serverless, transforms it with dbt into analytics-ready mart tables, and exports the results back to S3 for dashboard consumption. The entire cloud infrastructure is provisioned with OpenTofu (open-source Terraform).
+This project builds a production-style pipeline that automates that process end-to-end: ingesting raw parquet files from the CMS API, staging them in Amazon S3, loading into Amazon Redshift Serverless, transforming with dbt into analytics-ready mart tables, and exporting results to S3 for dashboard consumption. The entire cloud infrastructure is defined as code using OpenTofu (open-source Terraform).
 
 ---
 
