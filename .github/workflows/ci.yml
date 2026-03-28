@@ -103,6 +103,10 @@ jobs:
         working-directory: medicare_dbt
         run: dbt compile --profiles-dir ~/.dbt --target dev
 
+      - name: dbt run (dev)
+        working-directory: medicare_dbt
+        run: dbt run --profiles-dir ~/.dbt --target dev
+
       - name: dbt test (dev)
         working-directory: medicare_dbt
         run: dbt test --profiles-dir ~/.dbt --target dev
