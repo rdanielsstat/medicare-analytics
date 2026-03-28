@@ -428,12 +428,12 @@ Note the outputs — you will need the `ec2_public_ip` and `redshift_workgroup_e
 
 If you have previously connected to an EC2 instance at this IP address, clear the old host key first:
 ```bash
-ssh-keygen -R 
+ssh-keygen -R <ec2_public_ip>
 ```
 
 SSH into the instance:
 ```bash
-ssh -i ~/.ssh/your-key.pem ec2-user@
+ssh -i ~/.ssh/your-key.pem ec2-user@<ec2_public_ip>
 ```
 
 Clone the repository:
