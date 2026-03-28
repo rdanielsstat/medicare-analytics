@@ -30,32 +30,22 @@ flowchart LR
     A([CMS Public API]) --> B
 
     subgraph EC2 ["Apache Airflow (EC2)"]
-        B[Download & validate\nraw parquet]
+        B[Download & validate]
         B --> C[Upload to S3]
         C --> D[COPY to Redshift]
-        D --> E[dbt transformations]
-        E --> F[Validate mart output]
+        D --> E[dbt run]
+        E --> F[Export to S3]
     end
 
-    subgraph S3 ["Amazon S3"]
-        G[(Raw Parquet)]
-        K[(CSV Exports)]
-    end
-
-    subgraph DW ["Redshift Serverless"]
-        H[(medicare_monthly\n_enrollment)]
-        subgraph dbt ["dbt — dbt_medicare schema"]
-            I[stg_medicare\n_enrollment]
-            J[mart_enrollment\n_national\nmart_enrollment\n_by_state]
-        end
-    end
+    G[(S3\nRaw Parquet)] 
+    H[(Redshift Serverless)]
+    I[(S3\nCSV Exports)]
 
     C --> G
     D --> H
-    H --> I
-    I --> J
-    F --> K
-    K --> L([Streamlit Dashboard\nCommunity Cloud])
+    E --> H
+    F --> I
+    I --> J([Streamlit Dashboard])
 ```
 
 ### Local Development Pipeline
