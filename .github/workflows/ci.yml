@@ -95,6 +95,10 @@ jobs:
                 user: admin
           EOF
 
+      - name: dbt deps
+        working-directory: medicare_dbt
+        run: dbt deps --profiles-dir ~/.dbt
+
       - name: dbt compile (dev)
         working-directory: medicare_dbt
         run: dbt compile --profiles-dir ~/.dbt --target dev

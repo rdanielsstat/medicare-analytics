@@ -6,10 +6,21 @@ models:
     columns:
       - name: year
         description: "Enrollment year cast to integer."
+        tests:
+          - not_null
       - name: month
         description: "Enrollment month as a full month name, or 'Year' for annual summary rows."
+        tests:
+          - not_null
       - name: bene_geo_lvl
         description: "Geographic aggregation level: National, State, or County."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['National', 'State', 'County']
+      - name: total_beneficiaries
+        description: "Total Medicare beneficiaries."
       - name: state
         description: "Two-letter state abbreviation."
       - name: state_name
@@ -18,8 +29,6 @@ models:
         description: "County name."
       - name: fips_code
         description: "Five-digit FIPS code."
-      - name: total_beneficiaries
-        description: "Total Medicare beneficiaries."
       - name: original_medicare_benes
         description: "Beneficiaries enrolled in Original Medicare (Fee-for-Service)."
       - name: medicare_advantage_benes

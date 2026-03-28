@@ -3,15 +3,28 @@ version: 2
 models:
   - name: mart_enrollment_national
     description: "Monthly national Medicare enrollment totals from 2013 to present. One row per month. Excludes annual summary rows and sub-national geographies. Used for the national enrollment trend charts in the dashboard."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [year, month]
     columns:
       - name: report_date
         description: "First day of the enrollment month, constructed from year and month fields."
+        tests:
+          - not_null
+          - unique
       - name: year
         description: "Enrollment year."
+        tests:
+          - not_null
       - name: month
         description: "Enrollment month as a full month name."
+        tests:
+          - not_null
       - name: total_beneficiaries
         description: "Total Medicare beneficiaries nationally that month."
+        tests:
+          - not_null
       - name: original_medicare_benes
         description: "Beneficiaries enrolled in Original Medicare (Fee-for-Service)."
       - name: medicare_advantage_benes
@@ -31,17 +44,31 @@ models:
 
   - name: mart_enrollment_by_state
     description: "Annual Medicare enrollment by state using CMS annual snapshot rows. One row per state per year. Excludes territories with unknown state codes. Used for the choropleth map and state-level table in the dashboard."
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [year, state]
     columns:
       - name: year
         description: "Enrollment year."
+        tests:
+          - not_null
       - name: state
         description: "Two-letter state abbreviation."
+        tests:
+          - not_null
       - name: state_name
         description: "Full state name."
+        tests:
+          - not_null
       - name: fips_code
         description: "Five-digit FIPS code. Used for choropleth map rendering."
+        tests:
+          - not_null
       - name: total_beneficiaries
         description: "Total Medicare beneficiaries in the state that year."
+        tests:
+          - not_null
       - name: original_medicare_benes
         description: "Beneficiaries enrolled in Original Medicare (Fee-for-Service)."
       - name: medicare_advantage_benes
