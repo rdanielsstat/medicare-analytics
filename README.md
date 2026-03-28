@@ -174,8 +174,6 @@ medicare-analytics/
 └── pyproject.toml
 ```
 
----
-
 ## Data Pipeline
 
 ### Local Pipeline (PostgreSQL)
@@ -294,8 +292,6 @@ tofu apply
 ```
 
 See the [Monthly Run Checklist](#monthly-run-checklist) for the recommended teardown sequence that preserves S3, VPC, and IAM resources between monthly runs.
-
----
 
 ## CI/CD
 
