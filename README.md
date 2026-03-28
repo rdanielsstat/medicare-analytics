@@ -240,7 +240,7 @@ All AWS resources are defined as code in `infra/`:
 | Resource | Details |
 |---------------------|-----------------------------------------------------------|
 | VPC                 | Dedicated VPC with public subnet                          |
-| EC2                 | `t3.medium`, Amazon Linux 2023, Elastic IP                |
+| EC2                 | `t3.large`, Amazon Linux 2023, Elastic IP                 |
 | S3                  | Single bucket for raw parquet and CSV exports             |
 | Redshift Serverless | 32 RPU base capacity, `medicare_db` database              |
 | IAM — EC2 role      | S3 read/write, Redshift Data API access                   |
@@ -419,6 +419,12 @@ SSH into the instance:
 ssh -i ~/.ssh/your-key.pem ec2-user@<ec2-public-ip>
 ```
 
+If you have connected to a previous EC2 instance at the same IP address, clear the old host key first:
+
+```bash
+ssh-keygen -R <ec2-public-ip>
+```
+
 Clone the repository:
 
 ```bash
@@ -436,40 +442,142 @@ cp .env.aws.example .env
 
 Set up dbt profiles (not committed to git):
 
+Set up dbt profiles (not committed to git — contains connection details):
 ```bash
-mkdir -p dbt_profiles
-# Create dbt_profiles/profiles.yml — see .env.aws.example for required variables
+vi dbt_profiles/profiles.yml
 ```
+
+Paste the following content exactly:
+```yaml
+medicare_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      port: 5432
+      user: "{{ env_var('POSTGRES_USER') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DB') }}"
+      schema: dbt_medicare
+      threads: 4
+    prod:
+      type: redshift
+      method: iam
+      host: "{{ env_var('REDSHIFT_ENDPOINT') }}"
+      port: 5439
+      dbname: "{{ env_var('REDSHIFT_DATABASE') }}"
+      schema: dbt_medicare
+      threads: 4
+      ra3_node: true
+      region: us-east-1
+      user: "{{ env_var('REDSHIFT_ADMIN_USERNAME') }}"
+```
+
+The `prod` target authenticates to Redshift via IAM using the EC2 instance profile — no access keys are needed in this file.
 
 Fix permissions and start services:
 
 ```bash
-sudo chown -R 50000:0 logs data/raw/enrollment medicare_dbt
+# Create required directories
+mkdir -p logs data/raw/enrollment dbt_profiles
+
+# Set ownership to Airflow's user (UID 50000) so containers can read/write
+sudo chown -R 50000:0 logs data/raw/enrollment medicare_dbt dbt_profiles
+
 docker compose -f docker-compose.aws.yml up -d
 ```
 
 ### 3. Set Airflow variables
 
-In the Airflow UI (`http://<ec2-ip>:8080`), set these under Admin → Variables:
+In the Airflow UI (`http://<ec2-ip>:8080`), navigate to **Admin → Variables** and create the following:
 
-- `S3_BUCKET`
-- `REDSHIFT_WORKGROUP`
-- `REDSHIFT_DATABASE`
-- `REDSHIFT_IAM_ROLE`
-- `AWS_REGION`
+| Key                  | Value                                                                | Notes               |
+|----------------------|----------------------------------------------------------------------|---------------------|
+| `S3_BUCKET`          | `medicare-analytics-raw-rdaniels`                                    | Your S3 bucket name |
+| `REDSHIFT_IAM_ROLE`  | `arn:aws:iam::<account-id>:role/medicare-analytics-redshift-s3-role` | From `tofu output`  |
+| `REDSHIFT_WORKGROUP` | `medicare-analytics-workgroup`                                       | Default, can omit   |
+| `REDSHIFT_DATABASE`  | `medicare_db`                                                        | Default, can omit   |
+| `AWS_REGION`         | `us-east-1`                                                          | Default, can omit   |
+
+`S3_BUCKET` and `REDSHIFT_IAM_ROLE` are required — the others have defaults defined in the DAG code.
 
 ### 4. Trigger the pipeline
 
 Trigger `medicare_enrollment_pipeline_redshift` with `{"release_month": "2025-11"}`, then trigger `medicare_dashboard_export`.
 
-### 5. Stopping to avoid costs
+### 5. Tearing down between runs
+
+When the pipeline run is complete, destroy the EC2 and Redshift resources to avoid ongoing charges. The S3 bucket, VPC, and IAM roles are inexpensive to leave running.
+
+Shut down Docker cleanly before destroying infrastructure:
 
 ```bash
 docker compose -f docker-compose.aws.yml down
 exit
 ```
 
-Stop the EC2 instance from the AWS console. Redshift Serverless pauses automatically when idle. Estimated idle cost: ~$0.15/day (Elastic IP + EBS volume).
+Then from your local machine in the `infra/` directory:
+
+```bash
+tofu destroy -target=aws_instance.airflow -target=aws_eip.airflow
+```
+
+Redshift was provisioned outside the default Tofu workflow and can be removed via the AWS console under **Redshift Serverless → Namespaces**. All Tofu configuration remains intact and `tofu apply` will fully reprovision everything next run.
+
+Remove raw staging files from S3 — the export CSVs used by the dashboard are preserved:
+```bash
+aws s3 rm s3://<your-bucket>/enrollment/ --recursive
+```
+
+## Monthly Run Checklist
+
+When new CMS data is published (typically mid-month), follow this sequence:
+
+**1. Provision infrastructure**
+```bash
+cd infra
+tofu apply
+```
+
+**2. Configure the EC2 instance**
+```bash
+ssh-keygen -R <ec2-public-ip>
+ssh -i ~/.ssh/your-key.pem ec2-user@<ec2-public-ip>
+git clone https://github.com/rdanielsstat/medicare-analytics.git
+cd medicare-analytics
+```
+
+**3. Create environment files**
+- Copy `.env.aws.example` to `.env` and fill in all values
+- Create `dbt_profiles/profiles.yml` (see Cloud Deployment Step 2)
+
+**4. Set permissions and start services**
+```bash
+mkdir -p logs data/raw/enrollment
+sudo chown -R 50000:0 logs data/raw/enrollment medicare_dbt dbt_profiles
+docker compose -f docker-compose.aws.yml up -d
+```
+
+**5. Set Airflow Variables**
+
+In the Airflow UI under **Admin → Variables**, set `S3_BUCKET` and `REDSHIFT_IAM_ROLE` (see Cloud Deployment Step 3 for full table).
+
+**6. Run the pipeline**
+
+Trigger `medicare_enrollment_pipeline_redshift` with `{"release_month": "YYYY-MM"}`, then trigger `medicare_dashboard_export`.
+
+**7. Verify the dashboard**
+
+Confirm the dashboard at https://medicare-analytics.streamlit.app/ reflects the new data.
+
+**8. Tear down**
+```bash
+docker compose -f docker-compose.aws.yml down
+exit
+tofu destroy -target=aws_instance.airflow -target=aws_eip.airflow
+aws s3 rm s3://<your-bucket>/enrollment/ --recursive
+```
 
 ---
 
@@ -482,6 +590,18 @@ Secrets are never committed to git. The pattern used throughout:
 - `dbt_profiles/profiles.yml` — gitignored, created manually on EC2
 - `infra/terraform.tfvars` — gitignored, created manually
 - Streamlit secrets — configured via Streamlit Community Cloud UI
+
+### AWS Credential Contexts
+
+This project uses three separate AWS credential contexts that must not be mixed:
+
+| Context                   | Credential Source                    | User                                          |
+|---------------------------|--------------------------------------|-----------------------------------------------|
+| OpenTofu (infrastructure) | `~/.aws/credentials` default profile | IAM admin/infra user                          |
+| Streamlit dashboard       | `.streamlit/secrets.toml`            | `streamlit-dashboard` IAM user (S3 read-only) |
+| Airflow on EC2            | EC2 instance profile (automatic)     | IAM role via instance metadata                |
+
+The `.env` file should not contain `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY`. Tofu reads from `~/.aws/credentials` and the EC2 containers authenticate automatically via the attached IAM instance profile.
 
 ---
 
