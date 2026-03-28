@@ -2,7 +2,7 @@
 
 # Credentials & secrets
 .env
-dbt_profiles/
+dbt_profiles/.user.yml
 
 # Python
 .venv/
