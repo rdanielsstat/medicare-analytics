@@ -425,92 +425,47 @@ make restart   # Restart services
 - EC2 key pair created in `us-east-1`
 
 ### 1. Provision infrastructure
-
 ```bash
 cd infra
 cp terraform.tfvars.example terraform.tfvars
 # Fill in your values including key pair name and home IP CIDR
 tofu init && tofu apply
 ```
-
-Note the outputs — you will need the EC2 public IP and Redshift endpoint.
+Note the outputs — you will need the `ec2_public_ip` and `redshift_workgroup_endpoint`.
 
 ### 2. Configure EC2
 
-SSH into the instance:
-
+If you have previously connected to an EC2 instance at this IP address, clear the old host key first:
 ```bash
-ssh -i ~/.ssh/your-key.pem ec2-user@<ec2-public-ip>
+ssh-keygen -R <ec2_public_ip>
 ```
 
-If you have connected to a previous EC2 instance at the same IP address, clear the old host key first:
-
+SSH into the instance:
 ```bash
-ssh-keygen -R <ec2-public-ip>
+ssh -i ~/.ssh/your-key.pem ec2-user@<ec2_public_ip>
 ```
 
 Clone the repository:
-
 ```bash
 git clone https://github.com/rdanielsstat/medicare-analytics.git
 cd medicare-analytics
-git remote set-url --push origin no_push   # EC2 is read-only
+git remote set-url --push origin no_push
 ```
 
-Set up environment:
-
+Create your environment file from the template and fill in the values — you will need your Redshift endpoint, admin username, S3 bucket name, and IAM role ARN from the `tofu output` command:
 ```bash
 cp .env.aws.example .env
-# Edit .env with your Redshift endpoint, S3 bucket, and other values
+nano .env
 ```
 
-Set up dbt profiles (not committed to git):
-
-Set up dbt profiles (not committed to git — contains connection details):
+Set directory ownership to Airflow's container user (UID 50000) and start services:
 ```bash
-vi dbt_profiles/profiles.yml
-```
-
-Paste the following content exactly:
-```yaml
-medicare_dbt:
-  target: dev
-  outputs:
-    dev:
-      type: postgres
-      host: postgres
-      port: 5432
-      user: "{{ env_var('POSTGRES_USER') }}"
-      password: "{{ env_var('POSTGRES_PASSWORD') }}"
-      dbname: "{{ env_var('POSTGRES_DB') }}"
-      schema: dbt_medicare
-      threads: 4
-    prod:
-      type: redshift
-      method: iam
-      host: "{{ env_var('REDSHIFT_ENDPOINT') }}"
-      port: 5439
-      dbname: "{{ env_var('REDSHIFT_DATABASE') }}"
-      schema: dbt_medicare
-      threads: 4
-      ra3_node: true
-      region: us-east-1
-      user: "{{ env_var('REDSHIFT_ADMIN_USERNAME') }}"
-```
-
-The `prod` target authenticates to Redshift via IAM using the EC2 instance profile — no access keys are needed in this file.
-
-Fix permissions and start services:
-
-```bash
-# Create required directories
-mkdir -p logs data/raw/enrollment dbt_profiles
-
-# Set ownership to Airflow's user (UID 50000) so containers can read/write
+mkdir -p logs data/raw/enrollment
 sudo chown -R 50000:0 logs data/raw/enrollment medicare_dbt dbt_profiles
-
 docker compose -f docker-compose.aws.yml up -d
 ```
+
+Airflow authenticates to Redshift and S3 automatically via the EC2 IAM instance profile — no AWS credentials are needed in `.env`.
 
 ### 3. Set Airflow variables
 
