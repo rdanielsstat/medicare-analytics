@@ -11,15 +11,11 @@ An end-to-end batch data pipeline that ingests, transforms, and visualizes U.S. 
 Live dashboard: [Medicare Enrollment Dashboard](https://medicare-analytics.streamlit.app/)
 Live documentation: [dbt docs](https://rdanielsstat.github.io/medicare-analytics/)
 
----
-
 ## Overview
 
 Medicare enrollment data is published monthly by CMS and covers all 50 states at the national, state, and county level, broken down by plan type, age, sex, and demographic group. Tracking this data over time reveals trends in Medicare Advantage adoption, demographic shifts, and geographic variation in coverage — but the raw CMS files require significant cleaning and transformation before they are analytically useful.
 
 This project builds a production-style pipeline that automates that process end-to-end: ingesting raw parquet files from the CMS API, staging them in Amazon S3, loading into Amazon Redshift Serverless, transforming with dbt into analytics-ready mart tables, and exporting results to S3 for dashboard consumption. The entire cloud infrastructure is defined as code using OpenTofu (open-source Terraform).
-
----
 
 ## Architecture
 
@@ -84,18 +80,12 @@ flowchart LR
     G --> H([Streamlit\nlocal])
 ```
 
----
-
 ## Dataset
 
 **Source:** Centers for Medicare & Medicaid Services (CMS) — Monthly Enrollment by Contract/Plan/State/County
-
 **Coverage:** January 2013 through present (monthly updates)
-
 **Volume:** ~557,000 rows per monthly snapshot across all geographic levels
-
 **Geographic levels:** National, State, County
-
 **Key metrics per record:**
 - Total beneficiaries
 - Original Medicare vs. Medicare Advantage enrollment
@@ -105,14 +95,12 @@ flowchart LR
 
 The data dictionary is included at `docs/Medicare Monthly Enrollment Data Dictionary.pdf`.
 
----
-
 ## Tech Stack
 
-| Layer | Local | Cloud |
+| Layer              | Local                         | Cloud                      |
 |--------------------|-------------------------------|----------------------------|
 | Orchestration      | Apache Airflow 2.7.2 (Docker) | Apache Airflow 2.7.2 (EC2) |
-| Data Lake          | Local filesystem              | Amazon S3                  |
+| Data Lake          | Docker volume                 | Amazon S3                  |
 | Data Warehouse     | PostgreSQL 17 (Docker)        | Amazon Redshift Serverless |
 | Transformations    | dbt-postgres                  | dbt-redshift               |
 | Infrastructure     | Docker Compose                | OpenTofu (IaC)             |
@@ -120,55 +108,70 @@ The data dictionary is included at `docs/Medicare Monthly Enrollment Data Dictio
 | Package Management | uv                            | uv                         |
 | CI                 | GitHub Actions                | GitHub Actions             |
 
----
-
 ## Project Structure
 
 ```
 medicare-analytics/
-├── dags/
-│   ├── pipelines/
-│   │   ├── medicare_enrollment_pipeline_postgres.py   # Local pipeline
-│   │   └── medicare_enrollment_pipeline_redshift.py   # AWS pipeline
-│   └── exports/
-│       └── enrollment_dashboard_export.py             # Export marts to S3
-├── src/
-│   ├── ingestion/
-│   │   └── medicare_enrollment.py                     # CMS API client
-│   └── loaders/
-│       ├── postgres.py                                # Postgres loader
-│       ├── redshift.py                                # Redshift loader
-│       └── s3.py                                      # S3 loader
-├── medicare_dbt/
-│   └── models/
-│       ├── staging/
-│       │   ├── sources.yml
-│       │   └── stg_medicare_enrollment.sql
-│       └── marts/
-│           ├── mart_enrollment_national.sql
-│           └── mart_enrollment_by_state.sql
-├── dashboards/
-│   ├── app.py
-│   └── requirements.txt
-├── infra/                                             # OpenTofu IaC
-│   ├── main.tf
-│   ├── ec2.tf
-│   ├── redshift.tf
-│   ├── s3.tf
-│   ├── iam.tf
-│   ├── vpc.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── terraform.tfvars.example
-├── notebooks/                                         # Exploratory analysis
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                                     # GitHub Actions CI
-├── docker-compose.yml                                 # Local development
-├── docker-compose.aws.yml                             # EC2 deployment
-├── Makefile
+│       └── ci.yml                                          # GitHub Actions CI
+├── dags/
+│   ├── pipelines/
+│   │   ├── medicare_enrollment_pipeline_postgres.py        # Local pipeline DAG
+│   │   └── medicare_enrollment_pipeline_redshift.py        # AWS pipeline DAG
+│   └── exports/
+│       └── enrollment_dashboard_export.py                  # Export marts to S3
+├── dashboards/
+│   └── app.py                                              # Streamlit dashboard
+├── dbt_profiles/
+│   └── profiles.yml                                        # dbt connection profiles
+├── docs/
+│   ├── catalog.json                                        # dbt docs catalog
+│   ├── index.html                                          # dbt docs site
+│   ├── manifest.json                                       # dbt docs manifest
+│   └── Medicare Monthly Enrollment Data Dictionary.pdf
+├── infra/                                                  # OpenTofu IaC
+│   ├── ec2.tf
+│   ├── iam.tf
+│   ├── main.tf
+│   ├── outputs.tf
+│   ├── redshift.tf
+│   ├── s3.tf
+│   ├── variables.tf
+│   ├── vpc.tf
+│   └── terraform.tfvars.example
+├── medicare_dbt/
+│   ├── models/
+│   │   ├── staging/
+│   │   │   ├── sources.yml
+│   │   │   ├── schema.yml
+│   │   │   └── stg_medicare_enrollment.sql
+│   │   └── marts/
+│   │       ├── schema.yml
+│   │       ├── mart_enrollment_national.sql
+│   │       └── mart_enrollment_by_state.sql
+│   └── dbt_project.yml
+├── notebooks/
+│   ├── 01_explore_enrollment_data.ipynb
+│   ├── 02_query_postgres.ipynb
+│   └── 03_app_testing.ipynb
+├── src/
+│   ├── db/
+│   │   └── init/
+│   │       └── 01_create_airflow_db.sql
+│   ├── ingestion/
+│   │   └── medicare_enrollment.py                          # CMS API client
+│   └── loaders/
+│       ├── postgres.py                                     # PostgreSQL loader
+│       ├── redshift.py                                     # Redshift loader
+│       └── s3.py                                           # S3 loader
 ├── .env.example
-└── .env.aws.example
+├── .env.aws.example
+├── docker-compose.yml                                      # Local development
+├── docker-compose.aws.yml                                  # EC2 deployment
+├── Dockerfile.airflow
+├── Makefile
+└── pyproject.toml
 ```
 
 ---

@@ -3,6 +3,7 @@
 # Credentials & secrets
 .env
 dbt_profiles/.user.yml
+secrets.toml
 
 # Python
 .venv/
@@ -13,6 +14,10 @@ __pycache__/
 # Airflow
 logs/
 
+# dbt
+medicare_dbt/target/
+medicare_dbt/logs/
+
 # Jupyter
 .ipynb_checkpoints/
 
@@ -22,20 +27,17 @@ logs/
 # VS Code
 .vscode/
 
+# Data
 data/
 
-commands_and_settings
-
-dags_archive/
-
+# OpenTofu / Terraform
 .terraform/
 terraform.tfvars
-
-archive/
-
-secrets.toml
-
-terraform.tfstate
-terraform.tfstate.backup
+infra/terraform.tfvars
 infra/terraform.tfstate
 infra/terraform.tfstate.backup
+
+# Project-specific
+commands_and_settings
+dags_archive/
+archive/
