@@ -395,7 +395,7 @@ with DAG(
 
     t5 = BashOperator(
         task_id="run_dbt_transforms",
-        bash_command=f"cd {DBT_PROJECT_DIR} && dbt run --profiles-dir {DBT_PROFILES_DIR} --target prod",
+        bash_command=f"dbt run --project-dir {DBT_PROJECT_DIR} --profiles-dir {DBT_PROFILES_DIR} --target prod",
     )
 
     t6 = PythonOperator(
