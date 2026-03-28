@@ -606,4 +606,4 @@ Application-level logging uses Python's standard `logging` module with `INFO` le
 
 ## Acknowledgments
 
-This project was built as part of the [Data Engineering Zoomcamp](https://github.com/DataTalks-Club/data-engineering-zoomcamp) by [Alexey Grigorev](https://github.com/alexeygrigorev) and [DataTalks.Club](https://datatalks.club).
+This project was built as part of the [Data Engineering Zoomcamp](https://github.com/DataTalksClub/data-engineering-zoomcamp) by [Alexey Grigorev](https://github.com/alexeygrigorev) and [DataTalks.Club](https://datatalks.club).
