@@ -33,19 +33,23 @@ flowchart LR
         B[Download & validate]
         B --> C[Upload to S3]
         C --> D[COPY to Redshift]
-        D --> E[dbt run]
-        E --> F[Export to S3]
+        D --> E
+
+        subgraph dbt ["dbt transformations"]
+            E[stg_medicare_enrollment]
+            E --> F[mart_enrollment_national\nmart_enrollment_by_state]
+        end
     end
 
-    G[(S3\nRaw Parquet)] 
-    H[(Redshift Serverless)]
+    G[(S3\nRaw Parquet)]
+    H[(Redshift Serverless\nmedicare_monthly_enrollment)]
     I[(S3\nCSV Exports)]
 
     C --> G
     D --> H
-    E --> H
+    F --> H
     F --> I
-    I --> J([Streamlit Dashboard])
+    I --> J([Streamlit Dashboard\nCommunity Cloud])
 ```
 
 ### Local Development Pipeline
