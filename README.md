@@ -29,16 +29,22 @@ The pipeline ingests raw data from the CMS public API, stages it in Amazon S3, l
 flowchart LR
     A([CMS Public API]) --> B
 
-    subgraph EC2 ["Apache Airflow (EC2)"]
-        B[Download & validate]
-        B --> C[Upload to S3]
-        C --> D[COPY to Redshift]
-        D --> E
+    subgraph DAG1 ["DAG: medicare_enrollment_pipeline_redshift"]
+        subgraph EC2 ["Apache Airflow (EC2)"]
+            B[Download & validate]
+            B --> C[Upload to S3]
+            C --> D[COPY to Redshift]
+            D --> E
 
-        subgraph dbt ["dbt transformations"]
-            E[stg_medicare_enrollment]
-            E --> F[mart_enrollment_national\nmart_enrollment_by_state]
+            subgraph dbt ["dbt transformations"]
+                E[stg_medicare_enrollment]
+                E --> F[mart_enrollment_national\nmart_enrollment_by_state]
+            end
         end
+    end
+
+    subgraph DAG2 ["DAG: medicare_dashboard_export"]
+        K[Query Redshift\nExport to S3]
     end
 
     G[(S3\nRaw Parquet)]
@@ -48,7 +54,8 @@ flowchart LR
     C --> G
     D --> H
     F --> H
-    F --> I
+    H --> K
+    K --> I
     I --> J([Streamlit Dashboard\nCommunity Cloud])
 ```
 
@@ -57,19 +64,25 @@ flowchart LR
 flowchart LR
     A([CMS Public API]) --> B
 
-    subgraph Docker ["Docker Compose"]
-        B[Apache Airflow]
-        C[(PostgreSQL)]
-        subgraph dbt ["dbt — dbt_medicare schema"]
-            D[stg_medicare\n_enrollment]
-            E[mart_enrollment\n_national\nmart_enrollment\n_by_state]
+    subgraph DAG1 ["DAG: medicare_enrollment_pipeline_postgres"]
+        subgraph Docker ["Apache Airflow (Docker)"]
+            B[Download & validate]
+            B --> C[Load to PostgreSQL]
+            C --> D
+
+            subgraph dbt ["dbt transformations"]
+                D[stg_medicare_enrollment]
+                D --> E[mart_enrollment_national\nmart_enrollment_by_state]
+            end
         end
     end
 
-    B --> C
-    C --> D
-    D --> E
-    E --> F([Streamlit\nlocal])
+    F[(PostgreSQL\nmedicare_monthly_enrollment)]
+    G[(dbt_medicare schema\nmart tables)]
+
+    C --> F
+    E --> G
+    G --> H([Streamlit\nlocal])
 ```
 
 ---
