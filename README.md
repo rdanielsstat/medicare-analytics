@@ -1,5 +1,11 @@
 # Medicare Enrollment Analytics Pipeline
 
+![Airflow](https://img.shields.io/badge/Airflow-2.7.2-017CEE?logo=apacheairflow&logoColor=white)
+![dbt](https://img.shields.io/badge/dbt-1.8.1-FF694B?logo=dbt&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-S3%20%7C%20Redshift%20%7C%20EC2-232F3E?logo=amazonaws&logoColor=white)
+![OpenTofu](https://img.shields.io/badge/OpenTofu-IaC-FFDA00?logo=opentofu&logoColor=black)
+![Streamlit](https://img.shields.io/badge/Streamlit-Community%20Cloud-FF4B4B?logo=streamlit&logoColor=white)
+
 An end-to-end data engineering project that ingests, transforms, and visualizes U.S. Medicare enrollment data using a modern cloud-native stack. The pipeline runs on AWS with full infrastructure-as-code, orchestrated by Apache Airflow, transformed with dbt, and visualized through an interactive Streamlit dashboard deployed on Streamlit Community Cloud.
 
 Live dashboard: [Medicare Enrollment Dashboard](https://medicare-analytics.streamlit.app/)
@@ -624,3 +630,7 @@ logs/dag_id=<dag>/run_id=<run>/task_id=<task>/attempt=<n>.log
 ```
 
 Application-level logging uses Python's standard `logging` module with `INFO` level throughout the DAG and loader modules.
+
+## Acknowledgments
+
+This project was built as part of the [Data Engineering Zoomcamp](https://github.com/DataTalks-Club/data-engineering-zoomcamp) by [Alexey Grigorev](https://github.com/alexeygrigorev) and [DataTalks.Club](https://datatalks.club).
