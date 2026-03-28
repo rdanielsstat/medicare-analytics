@@ -243,7 +243,7 @@ def load_s3_to_redshift(**context) -> None:
                 raise RuntimeError(f"Redshift statement failed: {desc.get('Error')}")
             time.sleep(2)
 
-    # Create table if not exists with sort key for query performance
+    # Create table if not exists with distribution and sort keys for query performance
     run_sql(f"""
         CREATE TABLE IF NOT EXISTS {TARGET_SCHEMA}.{TARGET_TABLE} (
             year                                          VARCHAR(10),
@@ -307,6 +307,7 @@ def load_s3_to_redshift(**context) -> None:
             prscrptn_drug_partial_lis_benes               DOUBLE PRECISION,
             prscrptn_drug_no_lis_benes                    DOUBLE PRECISION
         )
+        DISTKEY (bene_state_abrvtn)
         SORTKEY (year, month, bene_state_abrvtn);
     """)
 

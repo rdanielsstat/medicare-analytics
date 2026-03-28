@@ -261,13 +261,13 @@ dbt docs serve --profiles-dir ../dbt_profiles --target dev
 
 **Table:** `public.medicare_monthly_enrollment`
 
-**Optimization:** `SORTKEY (year, month, bene_state_abrvtn)`
+**Optimization:** `DISTKEY (bene_state_abrvtn)` — `SORTKEY (year, month, bene_state_abrvtn)`
 
-The sort key is chosen to optimize the most common query patterns: filtering by time period (year/month) and slicing by state. Redshift stores data in 1MB blocks sorted by these columns, which minimizes the number of blocks scanned for time-range and state-based queries.
+The distribution key on `bene_state_abrvtn` collocates rows by state across Redshift compute nodes, minimizing data movement for state-based joins and aggregations. The sort key on `(year, month, bene_state_abrvtn)` optimizes the most common query patterns — filtering by time period and slicing by state — by minimizing the number of 1MB blocks scanned per query.
+
+In Redshift, `DISTKEY` and `SORTKEY` are the idiomatic equivalents of partitioning and clustering in other data warehouse platforms such as BigQuery. This implementation satisfies the same query optimization goals.
 
 All numeric columns use `DOUBLE PRECISION` to match the `float64` types in the source parquet files, avoiding casting overhead during `COPY`.
-
-**Note on partitioning:** Redshift Serverless does not support table partitioning in the traditional sense (as in BigQuery or Hive). The equivalent optimization in Redshift is `SORTKEY` for query pruning and `DISTKEY` for data distribution across nodes. The `SORTKEY (year, month, bene_state_abrvtn)` defined on this table serves the same purpose as partitioning — minimizing blocks scanned for the most common query patterns. This is the idiomatic Redshift approach to query optimization.
 
 ## Infrastructure (OpenTofu / Terraform)
 
