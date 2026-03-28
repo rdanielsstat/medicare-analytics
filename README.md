@@ -267,6 +267,8 @@ The sort key is chosen to optimize the most common query patterns: filtering by 
 
 All numeric columns use `DOUBLE PRECISION` to match the `float64` types in the source parquet files, avoiding casting overhead during `COPY`.
 
+**Note on partitioning:** Redshift Serverless does not support table partitioning in the traditional sense (as in BigQuery or Hive). The equivalent optimization in Redshift is `SORTKEY` for query pruning and `DISTKEY` for data distribution across nodes. The `SORTKEY (year, month, bene_state_abrvtn)` defined on this table serves the same purpose as partitioning — minimizing blocks scanned for the most common query patterns. This is the idiomatic Redshift approach to query optimization.
+
 ## Infrastructure (OpenTofu / Terraform)
 
 All AWS resources are defined as code in `infra/`:
