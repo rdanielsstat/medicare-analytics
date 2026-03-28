@@ -24,47 +24,58 @@ The pipeline ingests raw data from the CMS public API, stages it in Amazon S3, l
 
 ## Architecture
 
-```
-CMS Public API
-      |
-      v
-Apache Airflow (EC2)
-      |
-      |-- Download & validate raw parquet
-      |-- Upload to S3 (data lake)
-      |-- Load S3 -> Redshift Serverless (COPY)
-      |-- Run dbt transformations
-      |-- Validate mart output
-      |
-      v
-Amazon S3 (raw + exports)
-      |
-      v
-Amazon Redshift Serverless (data warehouse)
-      |
-      v
-dbt (staging views + mart tables)
-      |
-      v
-S3 CSV export
-      |
-      v
-Streamlit Dashboard (Community Cloud)
+### Cloud Pipeline (AWS)
+```mermaid
+flowchart LR
+    A([CMS Public API]) --> B
+
+    subgraph EC2 ["Apache Airflow (EC2)"]
+        B[Download & validate\nraw parquet]
+        B --> C[Upload to S3]
+        C --> D[COPY to Redshift]
+        D --> E[dbt transformations]
+        E --> F[Validate mart output]
+    end
+
+    subgraph S3 ["Amazon S3"]
+        G[(Raw Parquet)]
+        K[(CSV Exports)]
+    end
+
+    subgraph DW ["Redshift Serverless"]
+        H[(medicare_monthly\n_enrollment)]
+        subgraph dbt ["dbt — dbt_medicare schema"]
+            I[stg_medicare\n_enrollment]
+            J[mart_enrollment\n_national\nmart_enrollment\n_by_state]
+        end
+    end
+
+    C --> G
+    D --> H
+    H --> I
+    I --> J
+    F --> K
+    K --> L([Streamlit Dashboard\nCommunity Cloud])
 ```
 
-### Local Development Architecture
+### Local Development Pipeline
+```mermaid
+flowchart LR
+    A([CMS Public API]) --> B
 
-```
-CMS Public API
-      |
-      v
-Apache Airflow (Docker)
-      |
-      v
-PostgreSQL (Docker) -- dbt --> dbt_medicare schema
-      |
-      v
-Streamlit (local)
+    subgraph Docker ["Docker Compose"]
+        B[Apache Airflow]
+        C[(PostgreSQL)]
+        subgraph dbt ["dbt — dbt_medicare schema"]
+            D[stg_medicare\n_enrollment]
+            E[mart_enrollment\n_national\nmart_enrollment\n_by_state]
+        end
+    end
+
+    B --> C
+    C --> D
+    D --> E
+    E --> F([Streamlit\nlocal])
 ```
 
 ---
