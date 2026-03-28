@@ -95,6 +95,33 @@ jobs:
                 user: admin
           EOF
 
+      - name: Create source table
+        run: |
+          PGPASSWORD=airflow psql -h localhost -U airflow -d airflow -c "
+          CREATE SCHEMA IF NOT EXISTS public;
+          CREATE TABLE IF NOT EXISTS public.medicare_monthly_enrollment (
+            year VARCHAR(10),
+            month VARCHAR(20),
+            bene_geo_lvl VARCHAR(20),
+            bene_state_abrvtn VARCHAR(5),
+            bene_state_desc VARCHAR(50),
+            bene_county_desc VARCHAR(100),
+            bene_fips_cd VARCHAR(10),
+            tot_benes DOUBLE PRECISION,
+            orgnl_mdcr_benes DOUBLE PRECISION,
+            ma_and_oth_benes DOUBLE PRECISION,
+            aged_tot_benes DOUBLE PRECISION,
+            dsbld_tot_benes DOUBLE PRECISION,
+            male_tot_benes DOUBLE PRECISION,
+            female_tot_benes DOUBLE PRECISION
+          );
+          INSERT INTO public.medicare_monthly_enrollment VALUES
+            ('2025', 'December', 'National', NULL, NULL, NULL, NULL, 67000000, 30000000, 37000000, 55000000, 12000000, 32000000, 35000000),
+            ('2025', 'December', 'State', 'CA', 'California', NULL, '06000', 6000000, 2500000, 3500000, 5000000, 1000000, 2800000, 3200000),
+            ('2025', 'Year', 'State', 'CA', 'California', NULL, '06000', 6000000, 2500000, 3500000, 5000000, 1000000, 2800000, 3200000),
+            ('2025', 'December', 'County', 'CA', 'California', 'Los Angeles', '06037', NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+          "
+
       - name: dbt deps
         working-directory: medicare_dbt
         run: dbt deps --profiles-dir ~/.dbt
