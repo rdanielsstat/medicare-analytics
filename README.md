@@ -100,7 +100,7 @@ The data dictionary is included at `docs/Medicare Monthly Enrollment Data Dictio
 
 | Layer              | Local                         | Cloud                      |
 |--------------------|-------------------------------|----------------------------|
-| Orchestration      | Apache Airflow 2.7.2 (Docker) | Apache Airflow 2.7.2 (EC2) |
+| Orchestration      | Apache Airflow 2.9.0 (Docker) | Apache Airflow 2.7.2 (EC2) |
 | Data Lake          | Docker volume                 | Amazon S3                  |
 | Data Warehouse     | PostgreSQL 17 (Docker)        | Amazon Redshift Serverless |
 | Transformations    | dbt-postgres                  | dbt-redshift               |
@@ -448,6 +448,11 @@ cp .env.aws.example .env
 vi .env
 ```
 
+Generate a Fernet key for `AIRFLOW_FERNET_KEY`:
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
 Set directory ownership to Airflow's container user (UID 50000) and start services:
 ```bash
 mkdir -p logs data/raw/enrollment
@@ -524,8 +529,8 @@ This is required because dbt authenticates via the EC2 IAM instance role, not th
 
 **3. Configure the EC2 instance**
 ```bash
-ssh-keygen -R 
-ssh -i ~/.ssh/your-key.pem ec2-user@
+ssh-keygen -R <ec2_public_ip>
+ssh -i ~/.ssh/your-key.pem ec2-user@<ec2_public_ip>
 git clone https://github.com/rdanielsstat/medicare-analytics.git
 cd medicare-analytics
 ```
@@ -533,6 +538,11 @@ cd medicare-analytics
 **4. Create environment file**
 
 Copy `.env.aws.example` to `.env` and fill in all values.
+
+Generate a Fernet key for `AIRFLOW_FERNET_KEY`:
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
 
 **5. Set permissions and start services**
 ```bash
