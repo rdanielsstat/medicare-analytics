@@ -17,8 +17,7 @@ models:
         tests:
           - not_null
           - accepted_values:
-              arguments:
-                values: ['National', 'State', 'County']
+              values: ['National', 'State', 'County']
       - name: total_beneficiaries
         description: "Total Medicare beneficiaries."
       - name: state

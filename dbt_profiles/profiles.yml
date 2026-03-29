@@ -3,6 +3,15 @@ medicare_dbt:
   outputs:
     dev:
       type: postgres
+      host: postgres
+      port: 5432
+      user: "{{ env_var('POSTGRES_USER') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DB') }}"
+      schema: dbt_medicare
+      threads: 4
+    local:
+      type: postgres
       host: localhost
       port: 5432
       user: "{{ env_var('POSTGRES_USER') }}"

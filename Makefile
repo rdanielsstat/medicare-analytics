@@ -34,14 +34,14 @@ trigger-force:
 
 # ── dbt ──────────────────────────────────
 dbt-run:
-	cd medicare_dbt && dbt run --profiles-dir ../dbt_profiles --target dev
+	cd medicare_dbt && dbt run --profiles-dir ../dbt_profiles --target local
 
 dbt-test:
-	cd medicare_dbt && dbt test --profiles-dir ../dbt_profiles --target dev
+	cd medicare_dbt && dbt test --profiles-dir ../dbt_profiles --target local
 
 dbt-docs:
-	cd medicare_dbt && dbt docs generate --profiles-dir ../dbt_profiles --target dev && dbt docs serve --profiles-dir ../dbt_profiles --target dev
-
+	cd medicare_dbt && dbt docs generate --profiles-dir ../dbt_profiles --target local && dbt docs serve --profiles-dir ../dbt_profiles --target local
+	
 # ── Dashboard ────────────────────────────
 streamlit:
 	uv run streamlit run dashboards/app.py

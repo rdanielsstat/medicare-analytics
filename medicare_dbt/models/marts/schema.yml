@@ -5,8 +5,7 @@ models:
     description: "Monthly national Medicare enrollment totals from 2013 to present. One row per month. Excludes annual summary rows and sub-national geographies. Used for the national enrollment trend charts in the dashboard."
     tests:
       - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: [year, month]
+          combination_of_columns: [year, month]
     columns:
       - name: report_date
         description: "First day of the enrollment month, constructed from year and month fields."
@@ -46,8 +45,7 @@ models:
     description: "Annual Medicare enrollment by state using CMS annual snapshot rows. One row per state per year. Excludes territories with unknown state codes. Used for the choropleth map and state-level table in the dashboard."
     tests:
       - dbt_utils.unique_combination_of_columns:
-          arguments:
-            combination_of_columns: [year, state]
+          combination_of_columns: [year, state]
     columns:
       - name: year
         description: "Enrollment year."

@@ -9,6 +9,7 @@
 An end-to-end batch data pipeline that ingests, transforms, and visualizes U.S. Medicare enrollment data published monthly by the Centers for Medicare & Medicaid Services (CMS). The pipeline processes enrollment figures for over 65 million beneficiaries across all U.S. states and counties, loading them into a cloud data warehouse and surfacing trends through an interactive dashboard.
 
 Live dashboard: [Medicare Enrollment Dashboard](https://medicare-analytics.streamlit.app/)
+
 Live documentation: [dbt docs](https://rdanielsstat.github.io/medicare-analytics/)
 
 ## Overview
@@ -253,8 +254,8 @@ Live documentation including lineage graph, model descriptions, and column defin
 To regenerate locally:
 ```bash
 cd medicare_dbt
-dbt docs generate --profiles-dir ../dbt_profiles --target dev
-dbt docs serve --profiles-dir ../dbt_profiles --target dev
+dbt docs generate --profiles-dir ../dbt_profiles --target local
+dbt docs serve --profiles-dir ../dbt_profiles --target local
 ```
 
 ## Data Warehouse Design
