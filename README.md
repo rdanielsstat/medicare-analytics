@@ -507,7 +507,22 @@ cd infra
 tofu apply
 ```
 
-**2. Configure the EC2 instance**
+Note the `ec2_public_ip` from the outputs.
+
+**2. Grant Redshift permissions**
+
+On a fresh Redshift deployment, connect via **AWS Console → Redshift Serverless → Query editor v2** and run:
+```sql
+GRANT ALL ON DATABASE medicare_db TO "IAMR:medicare-analytics-ec2-airflow-role";
+GRANT ALL ON SCHEMA public TO "IAMR:medicare-analytics-ec2-airflow-role";
+CREATE SCHEMA IF NOT EXISTS dbt_medicare;
+GRANT ALL ON SCHEMA dbt_medicare TO "IAMR:medicare-analytics-ec2-airflow-role";
+ALTER SCHEMA dbt_medicare OWNER TO "IAMR:medicare-analytics-ec2-airflow-role";
+```
+
+This is required because dbt authenticates via the EC2 IAM instance role, not the admin username directly.
+
+**3. Configure the EC2 instance**
 ```bash
 ssh-keygen -R 
 ssh -i ~/.ssh/your-key.pem ec2-user@
@@ -515,36 +530,36 @@ git clone https://github.com/rdanielsstat/medicare-analytics.git
 cd medicare-analytics
 ```
 
-**3. Create environment file**
+**4. Create environment file**
 
 Copy `.env.aws.example` to `.env` and fill in all values.
 
-**4. Set permissions and start services**
+**5. Set permissions and start services**
 ```bash
 mkdir -p logs data/raw/enrollment
 sudo chown -R 50000:0 logs data/raw/enrollment medicare_dbt dbt_profiles
 docker compose -f docker-compose.aws.yml up -d
 ```
 
-**5. Set Airflow Variables**
+**6. Set Airflow Variables**
 
-In the Airflow UI under **Admin → Variables**, set `S3_BUCKET` and `REDSHIFT_IAM_ROLE` (see Cloud Deployment Step 3 for full table).
+In the Airflow UI (`http://<ec2_public_ip>:8080`) under **Admin → Variables**, set `S3_BUCKET` and `REDSHIFT_IAM_ROLE` (see Cloud Deployment Step 3 for full table).
 
-**6. Run the pipeline**
+**7. Run the pipeline**
 
 Trigger `medicare_enrollment_pipeline_redshift` with `{"release_month": "YYYY-MM"}`, then trigger `medicare_dashboard_export`.
 
-**7. Run dbt tests against Redshift**
+**8. Run dbt tests against Redshift**
 ```bash
 cd medicare_dbt
 dbt test --profiles-dir ../dbt_profiles --target prod
 ```
 
-**8. Verify the dashboard**
+**9. Verify the dashboard**
 
 Confirm the dashboard at https://medicare-analytics.streamlit.app/ reflects the new data.
 
-**9. Tear down**
+**10. Tear down**
 ```bash
 docker compose -f docker-compose.aws.yml down
 exit
