@@ -445,7 +445,7 @@ git remote set-url --push origin no_push
 Create your environment file from the template and fill in the values — you will need your Redshift endpoint, admin username, S3 bucket name, and IAM role ARN from the `tofu output` command:
 ```bash
 cp .env.aws.example .env
-nano .env
+vi .env
 ```
 
 Set directory ownership to Airflow's container user (UID 50000) and start services:
