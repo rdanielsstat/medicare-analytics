@@ -17,6 +17,7 @@ logs/
 # dbt
 medicare_dbt/target/
 medicare_dbt/logs/
+medicare_dbt/package-lock.yml
 
 # Jupyter
 .ipynb_checkpoints/
