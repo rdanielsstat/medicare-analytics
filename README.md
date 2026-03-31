@@ -442,15 +442,15 @@ cd medicare-analytics
 git remote set-url --push origin no_push
 ```
 
+Generate a Fernet key for `AIRFLOW_FERNET_KEY`:
+```bash
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
 Create your environment file from the template and fill in the values — you will need your Redshift endpoint, admin username, S3 bucket name, and IAM role ARN from the `tofu output` command:
 ```bash
 cp .env.aws.example .env
 vi .env
-```
-
-Generate a Fernet key for `AIRFLOW_FERNET_KEY`:
-```bash
-python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
 Set directory ownership to Airflow's container user (UID 50000) and start services:
@@ -464,6 +464,8 @@ Airflow authenticates to Redshift and S3 automatically via the EC2 IAM instance 
 
 ### 3. Set Airflow variables
 
+![Airflow UI](docs/images/airflow_dashboard.png)
+
 In the Airflow UI (`http://<ec2-ip>:8080`), navigate to **Admin → Variables** and create the following:
 
 | Key                  | Value                                                                | Notes               |
@@ -476,11 +478,27 @@ In the Airflow UI (`http://<ec2-ip>:8080`), navigate to **Admin → Variables** 
 
 `S3_BUCKET` and `REDSHIFT_IAM_ROLE` are required — the others have defaults defined in the DAG code.
 
-### 4. Trigger the pipeline
+### 4. Grant Redshift permissions**
+
+Connect via **AWS Console → Redshift Serverless → Query editor v2** and run:
+```sql
+GRANT ALL ON DATABASE medicare_db TO "IAMR:medicare-analytics-ec2-airflow-role";
+GRANT ALL ON SCHEMA public TO "IAMR:medicare-analytics-ec2-airflow-role";
+CREATE SCHEMA IF NOT EXISTS dbt_medicare;
+GRANT ALL ON SCHEMA dbt_medicare TO "IAMR:medicare-analytics-ec2-airflow-role";
+ALTER SCHEMA dbt_medicare OWNER TO "IAMR:medicare-analytics-ec2-airflow-role";
+```
+
+This is required because dbt authenticates via the EC2 IAM instance role, not the admin username directly.
+
+### 5. Trigger the pipeline
 
 Trigger `medicare_enrollment_pipeline_redshift` with `{"release_month": "2025-12"}`, then trigger `medicare_dashboard_export`.
 
-### 5. Tearing down between runs
+![Airflow Redshift](docs/images/airflow_redshift.png)
+![Airflow Export](docs/images/airflow_export.png)
+
+### 6. Tearing down between runs
 
 When the pipeline run is complete, destroy the EC2 and Redshift resources to avoid ongoing charges. The S3 bucket, VPC, and IAM roles are inexpensive to leave running.
 
