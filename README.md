@@ -587,6 +587,10 @@ dbt test --profiles-dir ../dbt_profiles --target prod
 
 Confirm the dashboard at https://medicare-analytics.streamlit.app/ reflects the new data.
 
+![Streamlit 1](docs/images/streamlit_dashboard1.png)
+![Streamlit 2](docs/images/streamlit_dashboard2.png)
+![Streamlit 3](docs/images/streamlit_dashboard3.png)
+
 **10. Tear down**
 ```bash
 docker compose -f docker-compose.aws.yml down
