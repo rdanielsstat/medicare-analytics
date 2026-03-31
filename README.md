@@ -478,7 +478,7 @@ In the Airflow UI (`http://<ec2-ip>:8080`), navigate to **Admin → Variables** 
 
 `S3_BUCKET` and `REDSHIFT_IAM_ROLE` are required — the others have defaults defined in the DAG code.
 
-### 4. Grant Redshift permissions**
+### 4. Grant Redshift permissions
 
 Connect via **AWS Console → Redshift Serverless → Query editor v2** and run:
 ```sql
