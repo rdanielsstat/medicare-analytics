@@ -14,7 +14,7 @@ Live documentation: [dbt docs](https://rdanielsstat.github.io/medicare-analytics
 
 ## Overview
 
-![Infographic](docs/images/notebooklm_infographic2.png)
+![Infographic](docs/images/notebooklm_infographic3.png)
 
 Medicare enrollment data is published monthly by CMS and covers all 50 states at the national, state, and county level, broken down by plan type, age, sex, and demographic group. Tracking this data over time reveals trends in Medicare Advantage adoption, demographic shifts, and geographic variation in coverage — but the raw CMS files require significant cleaning and transformation before they are analytically useful.
 
