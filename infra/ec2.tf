@@ -9,7 +9,7 @@ data "aws_ami" "amazon_linux_2023" {
 
   filter {
     name   = "name"
-    values = ["al2023-ami-*-x86_64"]
+    values = ["al2023-ami-2023.*-x86_64"]
   }
 
   filter {
@@ -27,7 +27,7 @@ resource "aws_instance" "airflow" {
   iam_instance_profile   = aws_iam_instance_profile.ec2_airflow_profile.name
 
   root_block_device {
-    volume_size = 20    # GB
+    volume_size = 30    # GB
     volume_type = "gp3"
     encrypted   = true
   }
