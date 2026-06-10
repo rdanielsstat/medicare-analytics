@@ -37,6 +37,7 @@ terraform.tfvars
 infra/terraform.tfvars
 infra/terraform.tfstate
 infra/terraform.tfstate.backup
+terraform.tfstate.1781109840.backup
 
 # Project-specific
 commands_and_settings

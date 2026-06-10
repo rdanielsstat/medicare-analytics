@@ -8,6 +8,10 @@ resource "aws_s3_bucket" "raw" {
     Name    = var.s3_raw_bucket_name
     Layer   = "raw"
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Block all public access — data lake should never be public
