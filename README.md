@@ -484,7 +484,6 @@ In the Airflow UI (`http://<ec2-ip>:8080`), navigate to **Admin → Variables** 
 
 Connect via **AWS Console → Redshift Serverless → Query editor v2** and run:
 ```sql
-CREATE USER "IAMR:medicare-analytics-ec2-airflow-role" WITH PASSWORD DISABLE;
 GRANT ALL ON DATABASE medicare_db TO "IAMR:medicare-analytics-ec2-airflow-role";
 GRANT ALL ON SCHEMA public TO "IAMR:medicare-analytics-ec2-airflow-role";
 CREATE SCHEMA IF NOT EXISTS dbt_medicare;
@@ -539,6 +538,7 @@ Note the `ec2_public_ip` from the outputs.
 
 On a fresh Redshift deployment, connect via **AWS Console → Redshift Serverless → Query editor v2** and run:
 ```sql
+CREATE USER "IAMR:medicare-analytics-ec2-airflow-role" WITH PASSWORD DISABLE;
 GRANT ALL ON DATABASE medicare_db TO "IAMR:medicare-analytics-ec2-airflow-role";
 GRANT ALL ON SCHEMA public TO "IAMR:medicare-analytics-ec2-airflow-role";
 CREATE SCHEMA IF NOT EXISTS dbt_medicare;
@@ -558,12 +558,12 @@ cd medicare-analytics
 
 **4. Create environment file**
 
-Copy `.env.aws.example` to `.env` and fill in all values.
-
 Generate a Fernet key for `AIRFLOW_FERNET_KEY`:
 ```bash
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
+
+Copy `.env.aws.example` to `.env` and fill in all values.
 
 **5. Set permissions and start services**
 ```bash
@@ -582,8 +582,7 @@ Trigger `medicare_enrollment_pipeline_redshift` with `{"release_month": "YYYY-MM
 
 **8. Run dbt tests against Redshift**
 ```bash
-cd medicare_dbt
-dbt test --profiles-dir ../dbt_profiles --target prod
+docker compose -f docker-compose.aws.yml exec airflow-scheduler bash -c "cd /opt/airflow/dbt/medicare_dbt && dbt test --profiles-dir /opt/airflow/dbt/profiles --target prod"
 ```
 
 **9. Verify the dashboard**

@@ -64,7 +64,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dbt
-        run: pip install dbt-postgres dbt-redshift
+        run: pip install "dbt-postgres==1.8.1" "dbt-redshift==1.8.1"
 
       - name: Create dbt profiles
         run: |
