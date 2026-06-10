@@ -484,6 +484,7 @@ In the Airflow UI (`http://<ec2-ip>:8080`), navigate to **Admin → Variables** 
 
 Connect via **AWS Console → Redshift Serverless → Query editor v2** and run:
 ```sql
+CREATE USER "IAMR:medicare-analytics-ec2-airflow-role" WITH PASSWORD DISABLE;
 GRANT ALL ON DATABASE medicare_db TO "IAMR:medicare-analytics-ec2-airflow-role";
 GRANT ALL ON SCHEMA public TO "IAMR:medicare-analytics-ec2-airflow-role";
 CREATE SCHEMA IF NOT EXISTS dbt_medicare;
