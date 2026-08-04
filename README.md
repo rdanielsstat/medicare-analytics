@@ -12,7 +12,7 @@ Live dashboard: [Medicare Enrollment Dashboard](https://medicare-analytics.strea
 
 Live documentation: [dbt docs](https://rdanielsstat.github.io/medicare-analytics/)
 
-Pipeline last run: July 7, 2026 (data through March 2026)
+Pipeline last run: August 4, 2026 (data through April 2026)
 
 ## Overview
 
@@ -21,6 +21,8 @@ Pipeline last run: July 7, 2026 (data through March 2026)
 Medicare enrollment data is published monthly by CMS and covers all 50 states at the national, state, and county level, broken down by plan type, age, sex, and demographic group. Tracking this data over time reveals trends in Medicare Advantage adoption, demographic shifts, and geographic variation in coverage — but the raw CMS files require significant cleaning and transformation before they are analytically useful.
 
 This project builds a production-style pipeline that automates that process end-to-end: ingesting raw parquet files from the CMS API, staging them in Amazon S3, loading into Amazon Redshift Serverless, transforming with dbt into analytics-ready mart tables, and exporting results to S3 for dashboard consumption. The entire cloud infrastructure is defined as code using OpenTofu (open-source Terraform).
+
+The Redshift Serverless workgroup is provisioned as **VPC-private** (`publicly_accessible = false`). All warehouse access happens from within the VPC — the Airflow EC2 instance connects over the private endpoint — so the warehouse is never exposed to the public internet.
 
 ## Architecture
 
@@ -170,11 +172,10 @@ medicare-analytics/
 │       ├── postgres.py                                     # PostgreSQL loader
 │       ├── redshift.py                                     # Redshift loader
 │       └── s3.py                                           # S3 loader
-├── .env.example
-├── .env.aws.example
-├── docker-compose.yml                                      # Local development
-├── docker-compose.aws.yml                                  # EC2 deployment
+├── .env.example                                           # Single env template (local + AWS)
+├── docker-compose.yml                                      # Used for both local and EC2
 ├── Dockerfile.airflow
+├── setup.sh                                                # EC2 post-clone: create/chown mount dirs, start stack
 ├── Makefile
 └── pyproject.toml
 ```
@@ -199,8 +200,8 @@ Six-step Airflow DAG (`medicare_enrollment_pipeline_redshift`):
 2. `validate_raw_data` — validates raw data integrity
 3. `upload_to_s3` — uploads parquet to S3, skips if the file already exists
 4. `load_s3_to_redshift` — `CREATE TABLE IF NOT EXISTS` + `TRUNCATE` + `COPY FROM S3`
-5. `run_dbt_transforms` — runs dbt with the Redshift prod target via IAM authentication
-6. `validate_mart` — queries `dbt_medicare.mart_enrollment_national` via the Redshift Data API
+5. `run_dbt_transforms` — runs dbt against the Redshift `prod` target; the dbt `on-run-start` hook applies all required grants automatically before models build
+6. `validate_mart` — queries `dbt_medicare.mart_enrollment_national` via the Redshift Data API (reads as the EC2 IAM role, which the grants hook has granted `SELECT`)
 
 ### Dashboard Export Pipeline
 
@@ -235,6 +236,18 @@ The dbt project (`medicare_dbt`) follows a staging and mart layer architecture:
 - Includes FIPS codes for choropleth map rendering
 - Calculates Medicare Advantage and fee-for-service penetration rates as a percentage of total beneficiaries
 - Ordered by year and state abbreviation
+
+### Permissions Bootstrap (`on-run-start` hook)
+
+Redshift permissions are applied automatically by a dbt `on-run-start` hook (`macros/grant_pipeline_permissions.sql`) rather than by manual SQL. On every `dbt run` against the `prod` target, the hook:
+
+- Creates the IAM database user `IAMR:medicare-analytics-ec2-airflow-role` if it does not already exist (idempotent — skips if present)
+- Grants database and schema privileges to that role, and creates the `dbt_medicare` schema
+- Grants `SELECT` on existing mart tables and sets `ALTER DEFAULT PRIVILEGES` so future dbt-built tables are automatically readable by the IAM role (this is what allows the `validate_mart` task, which reads as the IAM role, to query tables dbt builds as the admin user)
+
+The entire hook is guarded by `{% if execute and target.type == 'redshift' %}`, so it runs only against Redshift. On the local/CI Postgres target it is a no-op — the Redshift-specific `CREATE USER ... WITH PASSWORD DISABLE` syntax is never emitted against Postgres.
+
+Because the hook is idempotent and rebuild-safe, tearing down and recreating the Redshift workgroup requires no manual permission steps — the next pipeline run reapplies everything.
 
 ### Testing
 
@@ -283,10 +296,10 @@ All AWS resources are defined as code in `infra/`:
 | VPC                 | Dedicated VPC with 3 public subnets across 3 availability zones |
 | EC2                 | `t3.large`, Amazon Linux 2023, Elastic IP                       |
 | S3                  | Single bucket for raw parquet and CSV exports                   |
-| Redshift Serverless | 32 RPU base capacity, `medicare_db` database                    |
+| Redshift Serverless | 32 RPU base capacity, `medicare_db` database, **VPC-private** (`publicly_accessible = false`) |
 | IAM — EC2 role      | S3 read/write, Redshift Data API access                         |
 | IAM — Redshift role | S3 read/write for COPY and UNLOAD operations                    |
-| Security Groups     | SSH restricted to specified CIDR, Airflow UI on port 8080       |
+| Security Groups     | SSH + Airflow UI (8080) restricted to specified CIDR; Redshift (5439) reachable only from the Airflow security group |
 
 Provision infrastructure:
 ```bash
@@ -297,6 +310,8 @@ tofu init
 tofu plan
 tofu apply
 ```
+
+The EC2 `user_data` bootstrap script installs Docker, the Docker Compose plugin, the Docker **buildx** plugin (required by `docker compose build`), and git on first boot, so a freshly provisioned instance is build-ready with no manual setup.
 
 See the [Monthly Run Checklist](#monthly-run-checklist) for the recommended teardown sequence that preserves S3, VPC, and IAM resources between monthly runs.
 
@@ -309,11 +324,14 @@ GitHub Actions runs on every push and pull request:
 - Lints `dags/`, `src/`, and `dashboards/` with max line length 120
 
 **dbt validation job:**
-- Spins up a PostgreSQL service container
+- Spins up a PostgreSQL service container and seeds a small sample source table
 - Installs `dbt-postgres`, `dbt-redshift`, and `dbt-utils` via `dbt deps`
 - Creates a `profiles.yml` pointing to the CI PostgreSQL instance
 - Runs `dbt compile` to validate all model SQL
+- Runs `dbt run` to build the models against the CI PostgreSQL instance
 - Runs `dbt test` — 16 data tests across staging and mart layers
+
+CI runs entirely against the `dev` (Postgres) target. The `on-run-start` grants hook is guarded to `target.type == 'redshift'`, so it is skipped in CI — the Redshift-only grant SQL never executes against Postgres.
 
 The CI configuration is at `.github/workflows/ci.yml`.
 
@@ -446,25 +464,31 @@ cd medicare-analytics
 git remote set-url --push origin no_push
 ```
 
+Create your environment file from the template and fill in the values. For the Redshift connection dbt uses, set `REDSHIFT_HOST` (the workgroup endpoint hostname from `tofu output`), `REDSHIFT_ADMIN_USER`, and `REDSHIFT_ADMIN_PASSWORD`:
+```bash
+cp .env.example .env
+vi .env
+```
+
 Generate a Fernet key for `AIRFLOW_FERNET_KEY`:
 ```bash
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Create your environment file from the template and fill in the values — you will need your Redshift endpoint, admin username, S3 bucket name, and IAM role ARN from the `tofu output` command:
+Get the Redshift endpoint hostname for `REDSHIFT_HOST`:
 ```bash
-cp .env.aws.example .env
-vi .env
+# from your local machine, in infra/
+tofu output -json redshift_workgroup_endpoint | jq -r '.[0].address'
 ```
 
-Set directory ownership to Airflow's container user (UID 50000) and start services:
+Run the setup script, which creates the mounted directories, sets ownership to Airflow's container user (UID 50000) on the writable output dirs only, and starts the stack:
 ```bash
-mkdir -p logs data/raw/enrollment
-sudo chown -R 50000:0 logs data/raw/enrollment medicare_dbt dbt_profiles
-docker compose -f docker-compose.aws.yml up -d
+./setup.sh
 ```
 
-Airflow authenticates to Redshift and S3 automatically via the EC2 IAM instance profile — no AWS credentials are needed in `.env`.
+> **Note on directory ownership:** `setup.sh` chowns only the container-writable output dirs (`logs`, `data`, `medicare_dbt/logs`, `medicare_dbt/target`) to `50000:0`. It deliberately does **not** chown the whole `medicare_dbt` tree — doing so makes the git-tracked source files owned by UID 50000, which then blocks `git pull` from overwriting them.
+
+Airflow authenticates to Redshift (Data API) and S3 automatically via the EC2 IAM instance profile — no AWS access keys are needed in `.env`. The `REDSHIFT_ADMIN_*` values are used only by dbt for its SQL connection to the private workgroup.
 
 ### 3. Set Airflow variables
 
@@ -482,33 +506,20 @@ In the Airflow UI (`http://<ec2-ip>:8080`), navigate to **Admin → Variables** 
 
 `S3_BUCKET` and `REDSHIFT_IAM_ROLE` are required — the others have defaults defined in the DAG code.
 
-### 4. Grant Redshift permissions
-
-Connect via **AWS Console → Redshift Serverless → Query editor v2** and run:
-```sql
-GRANT ALL ON DATABASE medicare_db TO "IAMR:medicare-analytics-ec2-airflow-role";
-GRANT ALL ON SCHEMA public TO "IAMR:medicare-analytics-ec2-airflow-role";
-CREATE SCHEMA IF NOT EXISTS dbt_medicare;
-GRANT ALL ON SCHEMA dbt_medicare TO "IAMR:medicare-analytics-ec2-airflow-role";
-ALTER SCHEMA dbt_medicare OWNER TO "IAMR:medicare-analytics-ec2-airflow-role";
-```
-
-This is required because dbt authenticates via the EC2 IAM instance role, not the admin username directly.
-
-### 5. Trigger the pipeline
+### 4. Trigger the pipeline
 
 Trigger `medicare_enrollment_pipeline_redshift` with `{"release_month": "2025-12"}`, then trigger `medicare_dashboard_export`.
 
 ![Airflow Redshift](docs/images/airflow_redshift.png)
 ![Airflow Export](docs/images/airflow_export.png)
 
-### 6. Tearing down between runs
+### 5. Tearing down between runs
 
 When the pipeline run is complete, destroy the EC2 and Redshift resources to avoid ongoing charges. The S3 bucket, VPC, and IAM roles are inexpensive to leave running.
 
 Shut down Docker cleanly before destroying infrastructure:
 ```bash
-docker compose -f docker-compose.aws.yml down
+docker compose down
 exit
 ```
 
@@ -536,21 +547,7 @@ tofu apply
 
 Note the `ec2_public_ip` from the outputs.
 
-**2. Grant Redshift permissions**
-
-On a fresh Redshift deployment, connect via **AWS Console → Redshift Serverless → Query editor v2** and run:
-```sql
-CREATE USER "IAMR:medicare-analytics-ec2-airflow-role" WITH PASSWORD DISABLE;
-GRANT ALL ON DATABASE medicare_db TO "IAMR:medicare-analytics-ec2-airflow-role";
-GRANT ALL ON SCHEMA public TO "IAMR:medicare-analytics-ec2-airflow-role";
-CREATE SCHEMA IF NOT EXISTS dbt_medicare;
-GRANT ALL ON SCHEMA dbt_medicare TO "IAMR:medicare-analytics-ec2-airflow-role";
-ALTER SCHEMA dbt_medicare OWNER TO "IAMR:medicare-analytics-ec2-airflow-role";
-```
-
-This is required because dbt authenticates via the EC2 IAM instance role, not the admin username directly.
-
-**3. Configure the EC2 instance**
+**2. Configure the EC2 instance**
 ```bash
 ssh-keygen -R <ec2_public_ip>
 ssh -i ~/.ssh/your-key.pem ec2-user@<ec2_public_ip>
@@ -558,36 +555,35 @@ git clone https://github.com/rdanielsstat/medicare-analytics.git
 cd medicare-analytics
 ```
 
-**4. Create environment file**
+**3. Create environment file**
 
 Generate a Fernet key for `AIRFLOW_FERNET_KEY`:
 ```bash
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Copy `.env.aws.example` to `.env` and fill in all values.
+Copy `.env.example` to `.env` and fill in all values, including `REDSHIFT_HOST` (workgroup endpoint), `REDSHIFT_ADMIN_USER`, and `REDSHIFT_ADMIN_PASSWORD`.
 
-**5. Set permissions and start services**
+**4. Set permissions and start services**
 ```bash
-mkdir -p logs data/raw/enrollment
-sudo chown -R 50000:0 logs data/raw/enrollment medicare_dbt dbt_profiles
-docker compose -f docker-compose.aws.yml up -d
+./setup.sh
 ```
+`setup.sh` creates the mounted directories, chowns the writable output dirs to `50000:0`, and starts the stack. Docker, Compose, and buildx are already installed by the EC2 `user_data` bootstrap.
 
-**6. Set Airflow Variables**
+**5. Set Airflow Variables**
 
 In the Airflow UI (`http://<ec2_public_ip>:8080`) under **Admin → Variables**, set `S3_BUCKET` and `REDSHIFT_IAM_ROLE` (see Cloud Deployment Step 3 for full table).
 
-**7. Run the pipeline**
+**6. Run the pipeline**
 
-Trigger `medicare_enrollment_pipeline_redshift` with `{"release_month": "YYYY-MM"}`, then trigger `medicare_dashboard_export`.
+Trigger `medicare_enrollment_pipeline_redshift` with `{"release_month": "YYYY-MM"}`, then trigger `medicare_dashboard_export`. Redshift permissions are applied automatically by the dbt `on-run-start` hook during the `run_dbt_transforms` task — no manual grant SQL is needed on a fresh workgroup.
 
-**8. Run dbt tests against Redshift**
+**7. Run dbt tests against Redshift**
 ```bash
-docker compose -f docker-compose.aws.yml exec airflow-scheduler bash -c "cd /opt/airflow/dbt/medicare_dbt && dbt test --profiles-dir /opt/airflow/dbt/profiles --target prod"
+docker compose exec airflow-scheduler bash -c "cd /opt/airflow/dbt/medicare_dbt && dbt test --profiles-dir /opt/airflow/dbt/profiles --target prod --log-path /tmp/dbt_logs"
 ```
 
-**9. Verify the dashboard**
+**8. Verify the dashboard**
 
 Confirm the dashboard at https://medicare-analytics.streamlit.app/ reflects the new data.
 
@@ -595,9 +591,9 @@ Confirm the dashboard at https://medicare-analytics.streamlit.app/ reflects the 
 ![Streamlit 2](docs/images/streamlit_dashboard2.png)
 ![Streamlit 3](docs/images/streamlit_dashboard3.png)
 
-**10. Tear down**
+**9. Tear down**
 ```bash
-docker compose -f docker-compose.aws.yml down
+docker compose down
 exit
 tofu destroy -target=aws_instance.airflow -target=aws_eip.airflow
 aws s3 rm s3:///enrollment/ --recursive
@@ -607,7 +603,7 @@ aws s3 rm s3:///enrollment/ --recursive
 
 Secrets are never committed to git. The pattern used throughout:
 
-- `.env.example` and `.env.aws.example` — committed templates with placeholder values
+- `.env.example` — single committed template with placeholder values, covering both local and AWS variables
 - `.env` — gitignored, created manually on each machine
 - `infra/terraform.tfvars` — gitignored, created manually
 - Streamlit secrets — configured via Streamlit Community Cloud UI
