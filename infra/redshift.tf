@@ -29,8 +29,8 @@ resource "aws_redshiftserverless_workgroup" "main" {
   ]
   security_group_ids = [aws_security_group.redshift.id]
 
-  # Allow public accessibility so you can connect from local machine
-  publicly_accessible = true
+  # Private — reachable only from within the VPC (e.g. the Airflow EC2)
+  publicly_accessible = false
 
   tags = {
     Name = "${var.project}-workgroup"

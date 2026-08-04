@@ -143,14 +143,6 @@ resource "aws_security_group" "redshift" {
     security_groups = [aws_security_group.airflow_ec2.id]
   }
 
-  # Redshift port from your IP for local development
-  ingress {
-    from_port   = 5439
-    to_port     = 5439
-    protocol    = "tcp"
-    cidr_blocks = [var.allowed_ssh_cidr]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
