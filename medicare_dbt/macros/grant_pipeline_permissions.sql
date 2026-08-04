@@ -17,5 +17,11 @@
     CREATE SCHEMA IF NOT EXISTS dbt_medicare;
     GRANT ALL ON SCHEMA dbt_medicare TO "{{ role_user }}";
     ALTER SCHEMA dbt_medicare OWNER TO "{{ role_user }}";
+
+    GRANT SELECT ON ALL TABLES IN SCHEMA dbt_medicare
+      TO "IAMR:medicare-analytics-ec2-airflow-role";
+
+    ALTER DEFAULT PRIVILEGES FOR USER medicare_admin IN SCHEMA dbt_medicare
+      GRANT SELECT ON TABLES TO "IAMR:medicare-analytics-ec2-airflow-role";
   {% endif %}
 {% endmacro %}
