@@ -32,7 +32,7 @@ resource "aws_instance" "airflow" {
     encrypted   = true
   }
 
-  # Bootstrap script — installs Docker and Docker Compose on first boot
+  # Bootstrap script — installs Docker, Docker Compose, buildx on first boot
   user_data = <<-EOF
     #!/bin/bash
     set -e
@@ -51,6 +51,11 @@ resource "aws_instance" "airflow" {
     curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
       -o /usr/local/lib/docker/cli-plugins/docker-compose
     chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+    # Install Docker buildx plugin (required by compose build)
+    curl -SL https://github.com/docker/buildx/releases/download/v0.20.0/buildx-v0.20.0.linux-amd64 \
+      -o /usr/local/lib/docker/cli-plugins/docker-buildx
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 
     # Install git
     dnf install -y git

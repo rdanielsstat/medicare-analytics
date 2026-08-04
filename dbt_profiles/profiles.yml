@@ -21,12 +21,10 @@ medicare_dbt:
       threads: 4
     prod:
       type: redshift
-      method: iam
-      host: "{{ env_var('REDSHIFT_ENDPOINT') }}"
+      host: "{{ env_var('REDSHIFT_HOST') }}"
       port: 5439
-      dbname: "{{ env_var('REDSHIFT_DATABASE') }}"
+      user: "{{ env_var('REDSHIFT_ADMIN_USER') }}"
+      password: "{{ env_var('REDSHIFT_ADMIN_PASSWORD') }}"
+      dbname: medicare_db
       schema: dbt_medicare
       threads: 4
-      ra3_node: true
-      region: us-east-1
-      user: "{{ env_var('REDSHIFT_ADMIN_USERNAME') }}"
