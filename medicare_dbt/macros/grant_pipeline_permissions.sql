@@ -1,7 +1,7 @@
 {% macro grant_pipeline_permissions() %}
   {% set role_user = 'IAMR:medicare-analytics-ec2-airflow-role' %}
 
-  {% if execute %}
+  {% if execute and target.type == 'redshift' %}
     {# Create the IAM user only if absent. Redshift lacks CREATE USER IF NOT EXISTS. #}
     {% set check_user %}
       SELECT 1 FROM pg_user WHERE usename = '{{ role_user }}'
