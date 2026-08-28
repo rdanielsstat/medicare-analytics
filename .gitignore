@@ -38,8 +38,16 @@ infra/terraform.tfvars
 infra/terraform.tfstate
 infra/terraform.tfstate.backup
 terraform.tfstate.1781109840.backup
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
 
 # Project-specific
 commands_and_settings
 dags_archive/
 archive/
+
+.env
+*.pem
