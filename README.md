@@ -562,11 +562,11 @@ Generate a Fernet key for `AIRFLOW_FERNET_KEY`:
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-Copy `.env.example` to `.env` and fill in all values, including `REDSHIFT_HOST` (workgroup endpoint), `REDSHIFT_ADMIN_USER`, and `REDSHIFT_ADMIN_PASSWORD`.
+Copy `.env.example` to `.env` and fill in all values, including a generated fernet key, `REDSHIFT_HOST` (workgroup endpoint), `REDSHIFT_ADMIN_USER`, and `REDSHIFT_ADMIN_PASSWORD`.
 
 **4. Set permissions and start services**
 ```bash
-./setup.sh
+bash setup.sh
 ```
 `setup.sh` creates the mounted directories, chowns the writable output dirs to `50000:0`, and starts the stack. Docker, Compose, and buildx are already installed by the EC2 `user_data` bootstrap.
 
