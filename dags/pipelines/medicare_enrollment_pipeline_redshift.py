@@ -161,14 +161,29 @@ def download_from_api(**context) -> str:
     if force and partial_path.exists():
         partial_path.unlink()
 
-    # Resume from checkpoint, dropping a trailing half-written line if any
+    # Resume from checkpoint without loading the file into memory
     start_offset = 0
     if partial_path.exists():
-        lines = partial_path.read_text().splitlines(keepends=True)
-        if lines and not lines[-1].endswith("\n"):
-            lines.pop()
-        partial_path.write_text("".join(lines))
-        start_offset = len(lines)
+        with open(partial_path, "rb+") as f:
+            size = f.seek(0, os.SEEK_END)
+            if size:
+                f.seek(size - 1)
+                if f.read(1) != b"\n":
+                    # Drop a trailing half-written line: cut after the last newline
+                    keep = 0
+                    pos = size
+                    block = 1 << 20
+                    while pos > 0:
+                        begin = max(0, pos - block)
+                        f.seek(begin)
+                        idx = f.read(pos - begin).rfind(b"\n")
+                        if idx != -1:
+                            keep = begin + idx + 1
+                            break
+                        pos = begin
+                    f.truncate(keep)
+        with open(partial_path, "rb") as f:
+            start_offset = sum(1 for _ in f)
         logger.info("Resuming from offset %d", start_offset)
 
     session = requests.Session()
