@@ -128,13 +128,16 @@ def download_from_api(**context) -> str:
 
     Pages are fetched by several worker threads at once and appended in order
     to a .jsonl checkpoint, so a retried task resumes where the last attempt
-    stopped instead of starting over.
+    stopped instead of starting over. Conversion to parquet is done in chunks
+    to keep memory use flat.
     """
     import json
     import time
     from concurrent.futures import ThreadPoolExecutor
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
+    import pyarrow as pa
+    import pyarrow.parquet as pq
 
     conf = context["dag_run"].conf
     release_month = conf.get("release_month")
@@ -230,23 +233,47 @@ def download_from_api(**context) -> str:
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
 
-    with open(partial_path) as f:
-        all_rows = [json.loads(line) for line in f]
-
-    df = pd.DataFrame(all_rows)
-    cols_to_cast = [c for c in NUMERIC_COLS if c in df.columns]
-    df[cols_to_cast] = df[cols_to_cast].apply(pd.to_numeric, errors="coerce")
-
-    # Write to a temp file, then rename, so a crash never leaves a partial
-    # parquet that the "already exists" check would mistake for a good one.
+    # Convert in chunks so memory use stays flat regardless of row count.
+    # dtype=False keeps values as strings (preserves leading zeros in FIPS codes).
     tmp_path = out_path.with_suffix(".parquet.tmp")
-    df.to_parquet(tmp_path, engine="pyarrow", index=False, compression="snappy")
+    writer = None
+    schema = None
+    columns = None
+    total_rows = 0
+    try:
+        reader = pd.read_json(
+            partial_path, lines=True, chunksize=50_000, dtype=False, convert_dates=False
+        )
+        for chunk in reader:
+            if columns is None:
+                columns = list(chunk.columns)
+            chunk = chunk.reindex(columns=columns)
+            numeric = [c for c in NUMERIC_COLS if c in columns]
+            text = [c for c in columns if c not in numeric]
+            chunk[numeric] = chunk[numeric].apply(pd.to_numeric, errors="coerce")
+            chunk[text] = chunk[text].astype("string")
+
+            table = pa.Table.from_pandas(chunk, preserve_index=False)
+            if writer is None:
+                schema = table.schema
+                writer = pq.ParquetWriter(tmp_path, schema, compression="snappy")
+            else:
+                table = table.cast(schema)
+            writer.write_table(table)
+            total_rows += len(chunk)
+    finally:
+        if writer is not None:
+            writer.close()
+
+    # Rename only after a complete write, so a crash never leaves a partial
+    # parquet that the "already exists" check would mistake for a good one.
     os.replace(tmp_path, out_path)
     partial_path.unlink()
-    logger.info("Saved %d rows to %s", len(df), out_path)
+    logger.info("Saved %d rows to %s", total_rows, out_path)
 
     context["ti"].xcom_push(key="parquet_path", value=str(out_path))
     return str(out_path)
+
 
 def validate_raw_data(**context) -> None:
     """Check the parquet file has expected shape and columns before loading."""
