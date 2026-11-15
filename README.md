@@ -12,7 +12,7 @@ Live dashboard: [Medicare Enrollment Dashboard](https://medicare-analytics.strea
 
 Live documentation: [dbt docs](https://rdanielsstat.github.io/medicare-analytics/)
 
-Pipeline last run: September 28, 2026 (data through June 2026)
+Pipeline last run: November 15, 2026 (data through July 2026)
 
 ## Overview
 
