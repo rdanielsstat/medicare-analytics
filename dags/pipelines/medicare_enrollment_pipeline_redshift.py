@@ -31,7 +31,7 @@ sys.path.insert(0, "/opt/airflow")
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import boto3
@@ -124,12 +124,19 @@ def get_var(key: str, default: str = "") -> str:
 # Task functions
 # -----------------------------
 def download_from_api(**context) -> str:
-    """Fetch latest data from CMS API and save as parquet. Returns path to file."""
+    """Fetch latest data from CMS API and save as parquet. Returns path to file.
+
+    Pages are appended to a .jsonl checkpoint as they arrive, so a retried
+    task resumes where the last attempt stopped instead of starting over.
+    """
+    import json
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
 
-    release_month = context["dag_run"].conf.get("release_month")
-    force = context["dag_run"].conf.get("force", False)
+    conf = context["dag_run"].conf
+    release_month = conf.get("release_month")
+    force = conf.get("force", False)
+    page_size = int(conf.get("page_size", 1000))
 
     if not release_month:
         raise ValueError("release_month must be passed in dag_run config, e.g. {'release_month': '2025-11'}")
@@ -137,33 +144,68 @@ def download_from_api(**context) -> str:
     out_dir = DATA_DIR / release_month
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"medicare_monthly_enrollment_{release_month}.parquet"
+    partial_path = out_dir / f"medicare_monthly_enrollment_{release_month}.jsonl"
 
     if out_path.exists() and not force:
-        logger.info("File already exists at %s — skipping download.", out_path)
+        logger.info("File already exists at %s, skipping download.", out_path)
         context["ti"].xcom_push(key="parquet_path", value=str(out_path))
         return str(out_path)
 
+    if force and partial_path.exists():
+        partial_path.unlink()
+
+    # Resume from checkpoint, dropping a trailing half-written line if any
+    offset = 0
+    if partial_path.exists():
+        lines = partial_path.read_text().splitlines(keepends=True)
+        if lines and not lines[-1].endswith("\n"):
+            lines.pop()
+        partial_path.write_text("".join(lines))
+        offset = len(lines)
+        logger.info("Resuming from offset %d", offset)
+
     session = requests.Session()
-    retry = Retry(total=5, backoff_factor=1.0, status_forcelist=(429, 500, 502, 503, 504))
+    retry = Retry(
+        total=5,
+        backoff_factor=2.0,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=["GET"],
+    )
     session.mount("https://", HTTPAdapter(max_retries=retry))
 
-    page_size = context["dag_run"].conf.get("page_size", 5000)
-    all_rows, offset = [], 0
-    while True:
-        response = session.get(API_URL, params={"offset": offset, "size": page_size}, timeout=60)
-        response.raise_for_status()
-        page = response.json()
-        if not page:
-            break
-        all_rows.extend(page)
-        offset += len(page)
-        logger.info("Fetched %d rows so far", len(all_rows))
+    pages = 0
+    with open(partial_path, "a") as f:
+        while True:
+            response = session.get(
+                API_URL,
+                params={"offset": offset, "size": page_size},
+                timeout=(10, 180),  # connect, read
+            )
+            response.raise_for_status()
+            page = response.json()
+            if not page:
+                break
+            for row in page:
+                f.write(json.dumps(row) + "\n")
+            f.flush()
+            offset += len(page)
+            pages += 1
+            if pages % 25 == 0:
+                logger.info("Fetched %d rows so far", offset)
+
+    with open(partial_path) as f:
+        all_rows = [json.loads(line) for line in f]
 
     df = pd.DataFrame(all_rows)
     cols_to_cast = [c for c in NUMERIC_COLS if c in df.columns]
     df[cols_to_cast] = df[cols_to_cast].apply(pd.to_numeric, errors="coerce")
 
-    df.to_parquet(out_path, engine="pyarrow", index=False, compression="snappy")
+    # Write to a temp file, then rename, so a crash never leaves a partial
+    # parquet that the "already exists" check would mistake for a good one.
+    tmp_path = out_path.with_suffix(".parquet.tmp")
+    df.to_parquet(tmp_path, engine="pyarrow", index=False, compression="snappy")
+    os.replace(tmp_path, out_path)
+    partial_path.unlink()
     logger.info("Saved %d rows to %s", len(df), out_path)
 
     context["ti"].xcom_push(key="parquet_path", value=str(out_path))
@@ -377,6 +419,9 @@ with DAG(
     t1 = PythonOperator(
         task_id="download_from_api",
         python_callable=download_from_api,
+        retries=3,
+        retry_delay=timedelta(minutes=2),
+        execution_timeout=timedelta(hours=1),
     )
 
     t2 = PythonOperator(
