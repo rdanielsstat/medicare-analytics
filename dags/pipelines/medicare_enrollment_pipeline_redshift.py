@@ -126,10 +126,13 @@ def get_var(key: str, default: str = "") -> str:
 def download_from_api(**context) -> str:
     """Fetch latest data from CMS API and save as parquet. Returns path to file.
 
-    Pages are appended to a .jsonl checkpoint as they arrive, so a retried
-    task resumes where the last attempt stopped instead of starting over.
+    Pages are fetched by several worker threads at once and appended in order
+    to a .jsonl checkpoint, so a retried task resumes where the last attempt
+    stopped instead of starting over.
     """
     import json
+    import time
+    from concurrent.futures import ThreadPoolExecutor
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
 
@@ -137,6 +140,7 @@ def download_from_api(**context) -> str:
     release_month = conf.get("release_month")
     force = conf.get("force", False)
     page_size = int(conf.get("page_size", 1000))
+    workers = int(conf.get("workers", 4))
 
     if not release_month:
         raise ValueError("release_month must be passed in dag_run config, e.g. {'release_month': '2025-11'}")
@@ -155,14 +159,14 @@ def download_from_api(**context) -> str:
         partial_path.unlink()
 
     # Resume from checkpoint, dropping a trailing half-written line if any
-    offset = 0
+    start_offset = 0
     if partial_path.exists():
         lines = partial_path.read_text().splitlines(keepends=True)
         if lines and not lines[-1].endswith("\n"):
             lines.pop()
         partial_path.write_text("".join(lines))
-        offset = len(lines)
-        logger.info("Resuming from offset %d", offset)
+        start_offset = len(lines)
+        logger.info("Resuming from offset %d", start_offset)
 
     session = requests.Session()
     retry = Retry(
@@ -171,27 +175,60 @@ def download_from_api(**context) -> str:
         status_forcelist=(429, 500, 502, 503, 504),
         allowed_methods=["GET"],
     )
-    session.mount("https://", HTTPAdapter(max_retries=retry))
+    session.mount("https://", HTTPAdapter(max_retries=retry, pool_maxsize=workers))
 
+    def fetch_page(page_offset: int) -> list:
+        response = session.get(
+            API_URL,
+            params={"offset": page_offset, "size": page_size},
+            timeout=(10, 180),  # connect, read
+        )
+        response.raise_for_status()
+        return response.json()
+
+    started = time.monotonic()
+    fetched = 0
     pages = 0
-    with open(partial_path, "a") as f:
-        while True:
-            response = session.get(
-                API_URL,
-                params={"offset": offset, "size": page_size},
-                timeout=(10, 180),  # connect, read
-            )
-            response.raise_for_status()
-            page = response.json()
-            if not page:
-                break
-            for row in page:
-                f.write(json.dumps(row) + "\n")
-            f.flush()
-            offset += len(page)
-            pages += 1
-            if pages % 25 == 0:
-                logger.info("Fetched %d rows so far", offset)
+    short_page_seen = False
+    pool = ThreadPoolExecutor(max_workers=workers)
+    try:
+        with open(partial_path, "a") as f:
+            pending = {}  # offset -> future, always `workers` requests in flight
+            next_submit = start_offset
+            next_write = start_offset
+            while True:
+                while len(pending) < workers:
+                    pending[next_submit] = pool.submit(fetch_page, next_submit)
+                    next_submit += page_size
+
+                # Block on the oldest page so rows are always written in order
+                page = pending.pop(next_write).result()
+
+                if not page:
+                    break
+                if short_page_seen:
+                    raise RuntimeError(
+                        "API returned a short page before the end of the data. "
+                        "Retry with a smaller page_size."
+                    )
+                if len(page) < page_size:
+                    short_page_seen = True  # fine if the next page is empty
+
+                for row in page:
+                    f.write(json.dumps(row) + "\n")
+                f.flush()
+                fetched += len(page)
+                next_write += page_size
+                pages += 1
+                if pages % 25 == 0:
+                    elapsed = time.monotonic() - started
+                    logger.info(
+                        "Fetched %d rows total (%.0f rows/min this run)",
+                        start_offset + fetched,
+                        fetched / elapsed * 60,
+                    )
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
     with open(partial_path) as f:
         all_rows = [json.loads(line) for line in f]
@@ -210,7 +247,6 @@ def download_from_api(**context) -> str:
 
     context["ti"].xcom_push(key="parquet_path", value=str(out_path))
     return str(out_path)
-
 
 def validate_raw_data(**context) -> None:
     """Check the parquet file has expected shape and columns before loading."""
@@ -421,7 +457,7 @@ with DAG(
         python_callable=download_from_api,
         retries=3,
         retry_delay=timedelta(minutes=2),
-        execution_timeout=timedelta(hours=1),
+        execution_timeout=timedelta(hours=4),
     )
 
     t2 = PythonOperator(
